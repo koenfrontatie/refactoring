@@ -1,19 +1,24 @@
-from the_judge.common.logger import setup_logger
-from the_judge.application.commands.capture import CaptureFrameCommand
+# infrastructure/network/handlers.py
+from datetime import datetime
+from the_judge.application.dtos import CameraFrameDTO
+from the_judge.domain.tracking.control import Camera
+import logging
 
-logger = setup_logger('SocketHandlers')
+log = logging.getLogger("ws.handlers")
 
+def register(sio, capture_cmd, tracking_svc) -> None:
+    @sio.on(Camera.CAPTURE_FRAMES)              # event *is* the command
+    async def _capture(_msg: dict):        # payload may only carry filename
+        ok = await capture_cmd.execute(filename=_msg.get("filename"))
+        log.info("capture %s", "✓" if ok else "✗")
 
-class SocketHandlers:
-    
-    def __init__(self, capture_command: CaptureFrameCommand):
-        self.capture_command = capture_command
-    
-    async def handle_camera_capture(self, payload=None):
-        logger.info("Camera capture requested")
-        result = await self.capture_command.execute()
-        
-        if result:
-            logger.info(f"Frame capture result: {result}")
-        else:
-            logger.error("Frame capture failed")
+    @sio.on(Camera.FRAME_CAPTURED)
+    async def _frame(msg: dict):
+        dto = CameraFrameDTO(
+            camera_id  = msg["camera_id"],
+            filename   = msg.get("filename") or datetime.utcnow().isoformat(),
+            frame_data = msg["frame_data"],
+            width      = msg["resolution"]["width"],
+            height     = msg["resolution"]["height"],
+        )
+        await tracking_svc.ingest_frame(dto)

@@ -1,140 +1,178 @@
-"""
-Remote camera adapter for network-based cameras.
-"""
-
-import base64
+import argparse
 import asyncio
+import base64
+import platform
+import socket
+import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Dict, List, Optional
 
-from the_judge.common.logger import setup_logger
-from the_judge.domain.tracking.entities import Camera
-from the_judge.infrastructure.hardware.base import CameraAdapter
+import cv2
+import socketio
 
-logger = setup_logger('RemoteCameraAdapter')
+# ───────────────────────── configuration ───────────────────────── #
 
+DEFAULT_PORT   = 8081
+CAM_COUNT      = 1
+RESOLUTION     = (1920, 1080)
+HOST_TO_DISCOVER = "KVDWPC"
 
-class RemoteCameraAdapter(CameraAdapter):
-    """Remote camera adapter for network cameras based on judge-camera."""
-    
-    def __init__(self, camera: Camera, stream_dir: Path = Path("stream")):
-        super().__init__(camera)
-        self.stream_dir = stream_dir
-        self.frames_received = 0
-        self.registered_cameras: Dict[str, dict] = {}
-        
-    async def initialize(self) -> bool:
-        """Initialize remote camera (just mark as active)."""
-        logger.info(f"Remote camera {self.camera.name} ready")
-        self.camera.activate()
-        return True
-    
-    async def capture_frame(self, filename: str) -> Optional[Path]:
-        """Remote cameras don't capture directly - frames come via network."""
-        logger.warning("Remote camera capture_frame called - frames should come via network")
-        return None
-    
-    def register_remote_camera(self, camera_id: str, device_name: str) -> bool:
-        """Register a remote camera client."""
+# ───────────────────────── dataclasses ────────────────────────── #
+
+@dataclass(slots=True)
+class CameraInfo:
+    index: int
+    width: int
+    height: int
+    capture: cv2.VideoCapture
+
+# ───────────────────────── core client ────────────────────────── #
+
+class RemoteCameraClient:
+    """Async Socket‑IO camera client (single process, n cameras)."""
+
+    def __init__(
+        self,
+        device_name: str,
+        server_ip: str,
+        *,
+        cam_count: int = CAM_COUNT,
+    ) -> None:
+        self.device_name = device_name or platform.node()
+        self.server_url  = f"http://{server_ip}:{DEFAULT_PORT}"
+        self.cam_count   = cam_count
+        self.cameras: Dict[int, CameraInfo] = {}
+
+        self.sio = socketio.AsyncClient(reconnection=True, request_timeout=10)
+        self._register_socket_handlers()
+
+    # ───── Socket‑IO event handlers ───── #
+
+    def _register_socket_handlers(self) -> None:
+
+        @self.sio.event
+        async def connect():
+            print(f"[socket] connected → {self.server_url}")
+            await self._register_cameras()
+
+        @self.sio.event
+        async def disconnect():
+            print("[socket] disconnected")
+
+        @self.sio.on("camera.capture_frames")
+        async def _on_capture(payload: dict):
+            await self._capture_all(payload.get("filename"))
+
+    # ───── camera discovery / init ───── #
+
+    def _discover_and_open(self) -> None:
+        print("[init] enumerating cameras…")
+        for idx in range(5):  # probe first 5 indices
+            if len(self.cameras) >= self.cam_count:
+                break
+            cap = cv2.VideoCapture(idx, cv2.CAP_ANY)
+            if cap.isOpened():
+                w, h = RESOLUTION
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH,  w)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                self.cameras[idx] = CameraInfo(idx, w, h, cap)
+                print(f"  ✓ camera {idx} ready ({w}×{h})")
+
+        if not self.cameras:
+            raise RuntimeError("no working cameras found")
+
+    # ───── registration ───── #
+
+    async def _register_cameras(self) -> None:
+        cam_ids = [f"{self.device_name}.{i+1}" for i in self.cameras]
+        await self.sio.emit("camera.register",
+                            {"device_name": self.device_name,
+                             "camera_ids": cam_ids})
+        print(f"[socket] sent camera.register → {cam_ids}")
+
+    async def _unregister(self) -> None:
+        await self.sio.emit("camera.unregister",
+                            {"device_name": self.device_name})
+
+    # ───── capture & push ───── #
+
+    async def _capture_all(self, filename_stub: str | None) -> None:
+        print("[capture] request received")
+        await asyncio.gather(*(
+            self._capture_one(cam, filename_stub, ordinal)
+            for ordinal, cam in self.cameras.items()
+        ))
+
+    async def _capture_one(
+        self,
+        cam: CameraInfo,
+        filename_stub: str | None,
+        ordinal: int,
+    ) -> None:
+        ret, frame = cam.capture.read()
+        if not ret:
+            return print(f"  ✗ capture failed on {ordinal}")
+
+        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        if not ok:
+            return print(f"  ✗ encode failed on {ordinal}")
+
+        await self.sio.emit("camera.frame", {
+            "camera_id":  f"{self.device_name}.{ordinal+1}",
+            "filename":   filename_stub,
+            "frame_data": base64.b64encode(buf).decode(),
+            "resolution": {"width": cam.width, "height": cam.height},
+        })
+        print(f"  → pushed frame from cam {ordinal+1}")
+
+    # ───── lifecycle ───── #
+
+    async def run(self) -> None:
+        self._discover_and_open()
         try:
-            self.registered_cameras[camera_id] = {
-                'device_name': device_name,
-                'is_active': True,
-                'frames_received': 0
-            }
-            
-            camera_dir = self.stream_dir / camera_id
-            camera_dir.mkdir(parents=True, exist_ok=True)
-            
-            logger.info(f"Registered remote camera: {camera_id} ({device_name})")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error registering remote camera {camera_id}: {e}")
-            return False
-    
-    def unregister_remote_camera(self, camera_id: str) -> bool:
-        """Unregister a remote camera client."""
-        if camera_id in self.registered_cameras:
-            self.registered_cameras[camera_id]['is_active'] = False
-            logger.info(f"Unregistered remote camera: {camera_id}")
-            return True
-        return False
-    
-    def receive_frame(self, camera_id: str, frame_data_base64: str, filename: str) -> Optional[Path]:
-        """Receive frame data from remote camera and save to file."""
-        try:
-            if camera_id not in self.registered_cameras:
-                logger.warning(f"Received frame from unregistered camera: {camera_id}")
-                return None
-            
-            if frame_data_base64.startswith('data:image/'):
-                frame_data_base64 = frame_data_base64.split(',')[1]
-            
-            frame_bytes = base64.b64decode(frame_data_base64)
-            
-            camera_dir = self.stream_dir / camera_id
-            camera_dir.mkdir(parents=True, exist_ok=True)
-            
-            filepath = camera_dir / filename
-            
-            with open(filepath, 'wb') as f:
-                f.write(frame_bytes)
-                
-            if filepath.exists():
-                logger.info(f"Received frame from {camera_id}: {filename}")
-                self.camera.update_activity()
-                self.registered_cameras[camera_id]['frames_received'] += 1
-                self.frames_received += 1
-                return filepath
-            else:
-                logger.error(f"Failed to save received frame: {filename}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error saving received frame from {camera_id}: {e}")
-            self.camera.mark_error()
-            return None
-    
-    def request_frames_from_all(self, filename: str) -> list:
-        """Request frames from all active remote cameras."""
-        active_cameras = [
-            camera_id for camera_id, info in self.registered_cameras.items() 
-            if info['is_active']
-        ]
-        
-        if active_cameras:
-            logger.info(f"Requesting frames from {len(active_cameras)} remote cameras")
-            return [{
-                'filename': filename,
-                'camera_ids': active_cameras
-            }]
-        
-        return []
-    
-    def get_status(self) -> dict:
-        """Get remote camera adapter status."""
-        active_cameras = sum(1 for info in self.registered_cameras.values() if info['is_active'])
-        
-        return {
-            'total_registered': len(self.registered_cameras),
-            'active_cameras': active_cameras,
-            'frames_received': self.frames_received,
-            'cameras': [
-                {
-                    'camera_id': camera_id,
-                    'device_name': info['device_name'],
-                    'is_active': info['is_active'],
-                    'frames_received': info['frames_received']
-                }
-                for camera_id, info in self.registered_cameras.items()
-            ]
-        }
-    
-    def shutdown(self):
-        """Clean shutdown."""
-        for camera_id in list(self.registered_cameras.keys()):
-            self.unregister_remote_camera(camera_id)
-        
-        logger.info(f"Remote camera {self.camera.name} shutdown")
-        self.camera.deactivate()
+            await self.sio.connect(self.server_url)
+            print("[run] started (Ctrl‑C to quit)")
+            while True:
+                await asyncio.sleep(30)   # simple keep‑alive
+        except asyncio.CancelledError:
+            pass
+        finally:
+            await self._unregister()
+            await self.sio.disconnect()
+            for cam in self.cameras.values():
+                cam.capture.release()
+            print("[shutdown] done")
+
+# ───────────────────────── CLI entry‑point ───────────────────────── #
+
+def _auto_server_ip() -> str:
+    try:
+        return socket.gethostbyname(HOST_TO_DISCOVER)
+    except socket.gaierror:
+        return "localhost"
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Remote camera client")
+    ap.add_argument("-d", "--device-name", default="")
+    ap.add_argument("-s", "--server-ip", help="server IP (defaults to hostname lookup)")
+    ns = ap.parse_args()
+
+    client = RemoteCameraClient(
+        device_name=ns.device_name or platform.node(),
+        server_ip=ns.server_ip or _auto_server_ip(),
+    )
+
+    try:
+        asyncio.run(client.run())
+        return 0
+    except KeyboardInterrupt:
+        return 0
+    except Exception as exc:
+        print(f"fatal: {exc}")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())
