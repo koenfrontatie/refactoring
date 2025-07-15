@@ -1,131 +1,113 @@
-the-judge-app/                 # repo root
-│
-├─ python/                        
-│  └─ the_judge/               # one installable package  →  
-│     ├─ __init__.py           # tiny: version + public re-exports only
-│     │
-│     ├─ settings/             # env & config parsing
-│     │   ├─ __init__.py       # get_settings() accessor (cached)
-│     │   └─ base.py           # class Settings(BaseSettings, frozen=True)
-│     │
-│     ├─ domain/               # pure business objects & rules (no IO)
-│     │   ├─ __init__.py
-│     │   ├─ camera.py         # Entity: Camera(id, location, fov)
-│     │   ├─ visitor.py        # Entity: Visitor(...)
-│     │   ├─ post.py           # Entity: Post(...)
-│     │   ├─ events.py         # DomainEvent classes (VisitorSeen, PostCreated…)
-│     │   └─ repositories.py   # Protocols: VisitorRepository, PostRepository, ...
-│     │
-│     ├─ application/          # orchestrates use-cases
-│     │   ├─ __init__.py
-│     │   ├─ dtos.py           # GeneratePostInput / Result, VisitorSnapshot…
-│     │   ├─ unit_of_work.py   # UoW interface (visitors, posts, frames…)
-│     │   │
-│     │   ├─ services/         # thin façades that chain commands
-│     │   │   ├─ camera_service.py
-│     │   │   ├─ tracking_service.py
-│     │   │   └─ content_service.py
-│     │   │
-│     │   ├─ commands/         # write-side CQRS
-│     │   │   ├─ capture_frame.py          # CaptureFrameCommand
-│     │   │   ├─ process_frame.py          # ProcessFrameCommand
-│     │   │   └─ generate_post.py          # GeneratePostCommand
-│     │   │
-│     │   └─ queries/          # read-side CQRS
-│     │       ├─ recent_visitors.py        # RecentVisitorsQuery
-│     │       └─ visitor_report.py
-│     │
-│     ├─ infrastructure/       # adapters / drivers (IO, frameworks)
-│     │   ├─ __init__.py
-│     │   │
-│     │   ├─ db/
-│     │   │   ├─ engine.py                     # create_engine, session factory
-│     │   │   ├─ models/                       # SQLAlchemy tables
-│     │   │   │   ├─ __init__.py
-│     │   │   │   ├─ visitor_model.py
-│     │   │   │   ├─ post_model.py
-│     │   │   │   └─ frame_model.py
-│     │   │   └─ repositories/                 # concrete repos
-│     │   │       ├─ __init__.py
-│     │   │       ├─ visitor_repo.py
-│     │   │       └─ post_repo.py
-│     │   │
-│     │   ├─ hardware/                         # camera drivers
-│     │   │   ├─ __init__.py
-│     │   │   ├─ base.py                       # ICameraAdapter Protocol
-│     │   │   ├─ usb_camera.py
-│     │   │   └─ remote_camera.py
-│     │   │
-│     │   ├─ vision/                           # ML pipelines
-│     │   │   ├─ __init__.py
-│     │   │   ├─ detector.py
-│     │   │   ├─ tracker.py
-│     │   │   └─ face_embedder.py
-│     │   │
-│     │   └─ external/                         # 3rd-party APIs
-│     │       ├─ openai_client.py
-│     │       ├─ photomaker.py
-│     │       └─ notification_service.py
-│     │
-│     ├─ presentation/         # delivery mechanisms (no business logic)
-│     │   ├─ __init__.py
-│     │   ├─ socket/              
-│     │   │   ├─ __init__.py
-│     │   │   ├─ client.py
-│     │   │   └─ handlers/
-│     │   │       ├─ __init__.py
-│     │   │       ├─ tracking.py	# @sio.event handlers call application commands
-│     │   │       └─ content.py
-│     │   └─ cli/              # Typer command-line entry
-│     │       └─ main.py
-│     │
-│     ├─ common/               # cross-cutting helpers (no IO)
-│     │   ├─ __init__.py
-│     │   ├─ logger.py
-│     │   └─ validation.py
-│     │
-│     └─ main.py               # ASGI / CLI bootstrap (imports presentation)
-│
-├─ tests/                      # pytest tree mirrors src
-│   ├─ __init__.py
-│   ├─ unit/
-│   │   ├─ test_camera_service.py
-│   │   └─ test_generate_post_command.py
-│   └─ integration/
-│       └─ test_frame_ingest.py
-│
-├─ scripts/                    # one-off jobs & diagnostics
-│   ├─ backfill_embeddings.py
-│   └─ socket_tester.py
-│
-└─ README.md
+our main working directory: C:\Users\koenv\Documents\Dev\NodeProjects\refactoring
+
+our reference project: the-judge-app
+
+we are refactoring my the-judge-app python code.
+
+i want to move to a DDD setup
+
+in refactoring/python/tree_output.txt you can see current file structure
+
+your code style must be pythonic
+we are using domain driven design and the repository pattern (dto uow)
+we make use of libraries SQLAlchemy 
+avoid using emojis
+commands come in via /network/socket.python
+
+do not make changes excessively, ask for confirmation when you decide on things.
+
+i want you to brainstorm with me in how we can best approach this. i would like to start with the tracking functionality of the-judge-app.
 
 
-the_judge/
-├─ presentation/
-│  └─ socket/              # ← new socket-facing boundary
-│      ├─ __init__.py
-│      ├─ client.py        
-│      └─ handlers.py      # @sio.event handlers call application commands
-└─ infrastructure/
-   └─ messaging/
-       ├─ sse_broadcaster.py
-       └─ socketio_broadcaster.py   # optional: push DomainEvents to clients
+you should have access to the new folder now. we will not write migration scripts. we are gonna start with the camera system -> processing system
 
+here is an outline of my ideas for the structure
 
-
-
-domain/
-├─ __init__.py          # root re‑exports           ← import domain as dj
-├─ tracking/            # ← bounded context ➊
-│   ├─ __init__.py      # public API for tracking  ← import domain.tracking as dt
-│   ├─ entities.py      # Visitor, Session, Frame
-│   ├─ control.py       # TrackingCmd enum (if any)
-│   ├─ events.py        # VisitorSeen, FrameReady
-│   └─ repositories.py  # Protocols: VisitorRepo, FrameRepo
-└─ content/             # ← bounded context ➋
-    ├─ __init__.py      # public API for content   ← import domain.content as dc
-    ├─ entities.py      # Post, Asset
-    ├─ control.py       # ContentOp enum (Generate, Publish…)
-    ├─ events.py        # PostCreated
-    └─ repositories.py  # PostRepo, AssetRepo
+python/                        # language silo; venv + code live here
+├─ venv/                       # local virtual‑env (git‑ignored)
+├─ requirements.txt            # pinned deps for dev/CI
+└─ src/                        # import‑root guard (prevents shadowing)
+   └─ the_judge/               # installable package  →  import the_judge
+      │
+      ├─ __init__.py           # version + public re‑exports only
+      │
+      ├─ settings/             # config parsed from .env / env‑vars
+      │   ├─ __init__.py
+      │   └─ base.py           # class Settings(BaseSettings…)
+      │
+      ├─ common/               # cross‑cutting, no I/O
+      │   ├─ __init__.py
+      │   ├─ logger.py         # setup_logger() wrapper around std‑log
+      │   └─ validation.py     # shared Pydantic / dataclass helpers
+      │
+      ├─ domain/               # business language, zero tech deps
+      │   ├─ __init__.py
+      │   ├─ tracking/         # visitor / camera bounded‑context
+      │   │   ├─ __init__.py
+      │   │   ├─ entities.py        # Camera, Visitor, Frame
+      │   │   ├─ control.py         # CamCmd enum (CAPTURE, LOOP_ON…)
+      │   │   ├─ events.py          # VisitorSeen, FrameReady
+      │   │   └─ repositories.py    # Protocols: VisitorRepo, FrameRepo
+      │   └─ content/          # AI‑post bounded‑context (later steps)
+      │       ├─ __init__.py
+      │       ├─ entities.py        # Post, Asset
+      │       ├─ control.py         # ContentOp enum
+      │       ├─ events.py          # PostCreated
+      │       └─ repositories.py    # PostRepo protocol
+      │
+      ├─ application/          # orchestrates domain use‑cases
+      │   ├─ __init__.py
+      │   ├─ dtos.py                # in‑process DTOs (FrameDTO …)
+      │   ├─ unit_of_work.py        # abstract UoW interface
+      │   ├─ services/              # coarse‑grain behaviours
+      │   │   ├─ camera_service.py      # control loop / capture
+      │   │   ├─ tracking_service.py    # detect → embed → match
+      │   │   └─ content_service.py     # generate & publish posts
+      │   ├─ commands/             # write‑side wrappers (opt)
+      │   │   ├─ capture.py             # CaptureNowCommand
+      │   │   ├─ process_frames.py      # batch ingest job
+      │   │   └─ toggle_capture.py
+      │   └─ queries/              # read‑side helpers
+      │       └─ recent_visitors.py     # list last‑30‑min visitors
+      │
+      ├─ infrastructure/         # tech‐specific adapters
+      │   ├─ __init__.py
+      │   ├─ db/                      # SQLAlchemy layer
+      │   │   ├─ __init__.py
+      │   │   ├─ engine.py                # engine+sessionmaker factory
+      │   │   ├─ sqlalchemy_uow.py        # concrete UnitOfWork
+      │   │   ├─ models/                  # ORM tables
+      │   │   │   ├─ __init__.py
+      │   │   │   ├─ tracking_models.py       # VisitorModel, FrameModel
+      │   │   │   └─ content_models.py        # PostModel, AssetModel
+      │   │   └─ repositories/            # concrete repo impls
+      │   │       ├─ __init__.py
+      │   │       ├─ tracking_repo.py         # SqlVisitorRepo…
+      │   │       └─ content_repo.py
+      │   │
+      │   ├─ vision/                  # ML wrappers (heavy libs)
+      │   │   ├─ detector.py              # YOLO face detector
+      │   │   ├─ face_embedder.py         # ArcFace / FaceNet embedding
+      │   │   └─ matcher.py               # cosine or Faiss search
+      │   │
+      │   ├─ network/                 # outbound protocols
+      │   │   ├─ socket.py                # WsClient (python‑socketio)
+      │   │   └─ handlers.py              # translate WS events ⇆ services
+      │   │
+      │   ├─ hardware/                # camera drivers (USB / RTSP)
+      │   │   ├─ __init__.py
+      │   │   ├─ base.py                  # ICameraAdapter Protocol
+      │   │   ├─ usb_camera.py
+      │   │   └─ remote_camera.py         # WebSocket proxy camera
+      │   │
+      │   └─ external/                # SaaS / HTTP APIs
+      │       ├─ openai_client.py         # GPT image/meme generation
+      │       ├─ photomaker_client.py     # PhotoMaker REST wrapper
+      │       └─ sse_notifyer.py          # push events to browser SSE
+      │
+      ├─ presentation/             # system entrypoints, no biz‑logic
+      │   ├─ __init__.py
+      │   └─ cli/
+      │       └─ main.py               # wire services + socket client, block
+      │
+      └─ main.py                  # tiny – delegates to presentation.cli
