@@ -1,0 +1,26 @@
+# Python virtual environment
+/venv/
+
+# Python compiled files
+__pycache__/
+
+
+# ML Models directory - ignore everything in models
+/infra/models/
+
+# YOLOv8 model in root
+/yolov8m.pt
+*.pt
+*.h5
+*.pkl
+*.model
+*.npy
+
+# Media files
+*.jpg
+*.png
+
+# Local environment
+.env
+.env.local
+.env.*.local

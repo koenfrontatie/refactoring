@@ -1,0 +1,85 @@
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 15-07-25 16:00:50.16
+============================================================
+python
+|   .env
+|   .env.example
+|   .gitignore
+|   PLAN.md
+|   requirements.txt
+|   startvenv.bat
++--- src
+|   +--- the_judge
+|   |   |   .gitignore
+|   |   |   main.py
+|   |   |   __init__.py
+|   |   +--- application
+|   |   |   |   dtos.py
+|   |   |   |   unit_of_work.py
+|   |   |   |   __init__.py
+|   |   |   +--- commands
+|   |   |   |   |   capture.py
+|   |   |   |   |   process_frames.py
+|   |   |   |   |   toggle_capture.py
+|   |   |   +--- queries
+|   |   |   |   |   recent_visitors.py
+|   |   |   +--- services
+|   |   |   |   |   camera_service.py
+|   |   |   |   |   content_service.py
+|   |   |   |   |   tracking_service.py
+|   |   +--- common
+|   |   |   |   logger.py
+|   |   |   |   __init__.py
+|   |   +--- domain
+|   |   |   |   __init__.py
+|   |   |   +--- content
+|   |   |   |   |   control.py
+|   |   |   |   |   entities.py
+|   |   |   |   |   events.py
+|   |   |   |   |   repositories.py
+|   |   |   |   |   __init__.py
+|   |   |   +--- tracking
+|   |   |   |   |   control.py
+|   |   |   |   |   entities.py
+|   |   |   |   |   events.py
+|   |   |   |   |   repositories.py
+|   |   |   |   |   __init__.py
+|   |   +--- infrastructure
+|   |   |   |   __init__.py
+|   |   |   +--- content
+|   |   |   +--- db
+|   |   |   |   |   engine.py
+|   |   |   |   |   sqlalchemy_uow.py
+|   |   |   |   |   __init__.py
+|   |   |   |   +--- models
+|   |   |   |   |   |   content_models.py
+|   |   |   |   |   |   tracking_models.py
+|   |   |   |   |   |   __init__.py
+|   |   |   |   +--- repositories
+|   |   |   |   |   |   content_repo.py
+|   |   |   |   |   |   tracking_repo.py
+|   |   |   +--- external
+|   |   |   |   |   openai_client.py
+|   |   |   |   |   photomaker_client.py
+|   |   |   |   |   sse_notifyer.py
+|   |   |   +--- hardware
+|   |   |   |   |   base.py
+|   |   |   |   |   remote_camera.py
+|   |   |   |   |   usb_camera.py
+|   |   |   |   |   __init__.py
+|   |   |   +--- network
+|   |   |   |   |   handlers.py
+|   |   |   |   |   socket.py
+|   |   |   +--- tracking
+|   |   |   |   |   detector.py
+|   |   |   |   |   face_embedder.py
+|   |   |   |   |   matcher.py
+|   |   |   |   +--- models
+|   |   +--- presentation
+|   |   |   |   __init__.py
+|   |   |   +--- cli
+|   |   |   |   |   main.py
+|   |   +--- settings
+|   |   |   |   base.py
+|   |   |   |   __init__.py
++--- tests
+|   |   socket_tester.py
