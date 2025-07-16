@@ -1,7 +1,3 @@
-"""
-USB Camera hardware adapter.
-"""
-
 import cv2
 import asyncio
 from pathlib import Path

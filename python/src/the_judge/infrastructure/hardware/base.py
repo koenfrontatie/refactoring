@@ -1,13 +1,8 @@
-"""
-Camera hardware adapters base classes.
-"""
-
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
 from the_judge.domain.tracking.entities import Camera
-
 
 class CameraAdapter(ABC):
     """Abstract base for camera adapters."""

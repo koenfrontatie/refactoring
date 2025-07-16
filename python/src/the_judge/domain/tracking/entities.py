@@ -11,7 +11,6 @@ _now = lambda: datetime.now(tz=timezone.utc)
 class CameraState(str, Enum):
     INACTIVE = "inactive"
     ACTIVE = "active"
-    CAPTURING = "capturing"
     ERROR = "error"
 
 
@@ -60,23 +59,11 @@ class Camera:
     last_seen: datetime = field(default_factory=_now)
         
     def activate(self) -> None:
-        if self.state != CameraState.INACTIVE:
-            raise RuntimeError(f"Cannot activate camera - current state: {self.state}")
+        if self.state == CameraState.ACTIVE:
+            return
         self.state = CameraState.ACTIVE
         self.last_seen = _now()
         
-    def start_capturing(self) -> None:
-        if self.state != CameraState.ACTIVE:
-            raise RuntimeError(f"Cannot start capturing - current state: {self.state}")
-        self.state = CameraState.CAPTURING
-        self.last_seen = _now()
-    
-    def stop_capturing(self) -> None:
-        if self.state != CameraState.CAPTURING:
-            raise RuntimeError(f"Cannot stop capturing - current state: {self.state}")
-        self.state = CameraState.ACTIVE
-        self.last_seen = _now()
-    
     def deactivate(self) -> None:
         if self.state in (CameraState.INACTIVE, CameraState.ERROR):
             return

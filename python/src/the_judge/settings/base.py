@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     app_name: str = "The Judge"
     debug: bool = Field(default=False, env="DEBUG")
     
+    # Network
+    socket_url: str = Field(default="ws://localhost:8081", env="SOCKET_URL")
+    
     # Camera settings
     camera_device_id: int = Field(default=0, env="CAMERA_DEVICE_ID")
     camera_width: int = Field(default=1280, env="CAMERA_WIDTH")

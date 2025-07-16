@@ -1,15 +1,16 @@
 # application/dtos.py
 from dataclasses import dataclass
-from typing import Optional
 
 @dataclass(slots=True, frozen=True)
 class CaptureRequestDTO:
-    filename: str | None
+    filename: str
 
 @dataclass(slots=True, frozen=True)
-class CaptureResultDTO:
+class CameraFrameDTO:
     camera_id: str
-    filename: str | None
-    frame_data: str          
-    width: int
-    height: int
+    filename: str
+    frame_data: str  # base64 encoded image data
+
+@dataclass(slots=True, frozen=True)
+class CameraRegistrationDTO:
+    name: str
