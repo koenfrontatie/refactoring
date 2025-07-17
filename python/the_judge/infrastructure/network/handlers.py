@@ -12,8 +12,8 @@ class Event(str, Enum):
 
 def register(sio, camera_service: CameraService):
     @sio.on(Event.REGISTER)
-    async def handle_camera_register(data):
-        camera = data.get('camera')
+    async def handle_camera_register(payload):
+        camera = payload.get('camera')
         if not camera:
             return
 
@@ -21,16 +21,16 @@ def register(sio, camera_service: CameraService):
         await camera_service.register_camera(registration_dto)
     
     @sio.on(Event.TRIGGER_COLLECTION)
-    async def handle_trigger_collection():
+    async def handle_trigger_collection(payload):
         collection_dto = CollectionRequestDTO(collection_id=datetime_utils.now().strftime("%Y%m%d%H%M%S"))
-        sio.emit(collection_dto.collection_id)
+        await sio.emit(Event.COLLECT_FRAME, collection_dto.model_dump())
         pass
 
     @sio.on(Event.FRAME)
-    async def handle_camera_frame(data):
-        id = data.get('id')
-        camera = data.get('camera')
-        b64 = data.get('b64')
+    async def handle_camera_frame(payload):
+        id = payload.get('id')
+        camera = payload.get('camera')
+        b64 = payload.get('b64')
         
         if not all([id, camera, b64]):
             return

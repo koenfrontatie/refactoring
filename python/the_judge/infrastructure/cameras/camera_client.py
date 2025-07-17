@@ -14,10 +14,7 @@ DEFAULT_SERVER_PORT = 8081      # Default socket port
 class CameraClient:
     def __init__(self):
         self.camera_id = platform.node()
-        self.cap = cv2.VideoCapture(0)  # Open default camera
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1920)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-
+        self.camera = None
         self.sio = socketio.AsyncClient()
         self.server_url = self._find_server_ip()
 
@@ -25,16 +22,34 @@ class CameraClient:
         async def connect():
             await self._register()
 
-        @self.sio.on('camera.collect.frame')
+        @self.sio.on('camera.collect_frame')
         async def camera_collect_frame(payload):
             await self._on_collect(payload)
 
     def open(self) -> None:
-        if not self.cap.isOpened():
-            raise RuntimeError(f"Cannot open camera {self.camera_id}")
+        try:
+            # Try to initialize with DirectShow backend first (Windows)
+            self.camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            # If that fails, try the default backend
+            if not self.camera.isOpened():
+                self.camera = cv2.VideoCapture(0)
+            if not self.camera.isOpened():
+                print("Failed to open camera with any backend")
+                return False
+                
+            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
+            print(f"Camera initialized")
+            return True
+            
+        except Exception as e:
+            print(f"Error initializing camera: {e}")
+            return False
+    
 
     def read(self) -> bytes:
-        ret, frame = self.cap.read()
+        ret, frame = self.camera.read()
         if not ret:
             raise RuntimeError(f"Failed to read from {self.camera_id}")
         _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
@@ -74,27 +89,29 @@ class CameraClient:
             return "localhost"
     
     async def run(self):
-        # open the camera once
         self.open()
 
-        # connect & let the handlers take over
-        await self.sio.connect(self.server_url)
-        await self.sio.wait()
-
-        # on shutdown
-        self.close()
+        try:
+            # connect & let the handlers take over
+            await self.sio.connect(self.server_url)
+            await self.sio.wait()   # blocks until socket disconnect
+        except KeyboardInterrupt:
+            # allow Ctrl‑C to break us out
+            pass
+        finally:
+            # ensure we always clean up socket and camera
+            try:
+                await self.sio.emit('camera.register', {
+                    'camera': self.camera_id,
+                    'action': 'unregister'
+                })
+                await self.sio.disconnect()
+            except Exception:
+                pass
+            self.close()
 
 def main():
-    parser = argparse.ArgumentParser(description="Simple USB Camera Client")
-    parser.add_argument('--camera-id',    '-i', required=True,
-                        help="Unique ID for this camera (e.g. 'usb1')")
-    parser.add_argument('--device-index','-d', type=int, default=0,
-                        help="OpenCV device index")
-    parser.add_argument('--server-url',  '-s', default='http://localhost:8081',
-                        help="Orchestrator URL")
-    args = parser.parse_args()
-
-    cam = CameraClient(args.camera_id, args.device_index, args.server_url)
+    cam = CameraClient()
     asyncio.run(cam.run())
 
 if __name__ == '__main__':
