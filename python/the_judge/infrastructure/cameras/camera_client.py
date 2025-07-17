@@ -8,11 +8,11 @@ import socket
 import platform
 
 # Configuration
-SERVER_HOSTNAME = "KVDWPC"      # Hostname to look for
+SERVER_HOSTNAME = ""      
 DEFAULT_SERVER_PORT = 8081      # Default socket port
 
 class CameraClient:
-    def __init__(self):
+    def _init_(self):
         self.camera_id = platform.node()
         self.camera = None
         self.sio = socketio.AsyncClient()
@@ -96,10 +96,10 @@ class CameraClient:
         try:
             # connect & let the handlers take over
             await self.sio.connect(self.server_url)
-            print(f"Connected to {self.server_url}")
             await self.sio.wait()   # blocks until socket disconnect
-        except Exception as e:
-            print(f"Connection error: {e}")
+        except KeyboardInterrupt:
+            # allow Ctrl‑C to break us out
+            pass
         finally:
             # ensure we always clean up socket and camera
             try:
@@ -108,18 +108,13 @@ class CameraClient:
                     'action': 'unregister'
                 })
                 await self.sio.disconnect()
-            except Exception as e:
-                print(f"Cleanup error: {e}")
+            except Exception:
+                pass
             self.close()
 
 def main():
     cam = CameraClient()
-    try:
-        asyncio.run(cam.run())
-    except KeyboardInterrupt:
-        print("\nShutting down camera client...")
-    except Exception as e:
-        print(f"Error: {e}")
+    asyncio.run(cam.run())
 
-if __name__ == '__main__':
+if _name_ == '_main_':
     main()
