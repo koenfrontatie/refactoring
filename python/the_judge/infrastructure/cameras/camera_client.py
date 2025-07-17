@@ -56,7 +56,7 @@ class CameraClient:
         return buf.tobytes()
 
     def close(self) -> None:
-        self.cap.release()
+        self.camera.release()
 
     async def _register(self):
         await self.sio.emit('camera.register', {
@@ -86,10 +86,12 @@ class CameraClient:
             return f"http://{server_ip}:{DEFAULT_SERVER_PORT}"
         except socket.gaierror:
             print(f"Could not resolve {SERVER_HOSTNAME}, using localhost")
-            return "localhost"
+            return f"http://localhost:{DEFAULT_SERVER_PORT}"
     
     async def run(self):
-        self.open()
+        if not self.open():
+            print("Failed to initialize camera")
+            return
 
         try:
             # connect & let the handlers take over

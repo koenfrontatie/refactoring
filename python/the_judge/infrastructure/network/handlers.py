@@ -28,15 +28,15 @@ def register(sio, camera_service: CameraService):
 
     @sio.on(Event.FRAME)
     async def handle_camera_frame(payload):
-        id = payload.get('id')
+        collection_id = payload.get('collection_id')
         camera = payload.get('camera')
         b64 = payload.get('b64')
         
-        if not all([id, camera, b64]):
+        if not all([collection_id, camera, b64]):
             return
             
         dto = CaptureResponseDTO(
-            id=id,
+            collection_id=collection_id,
             camera=camera,
             b64=b64
         )
