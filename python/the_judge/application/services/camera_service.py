@@ -30,6 +30,7 @@ class CameraService:
             return
             
         camera_dir = self.cfg.get_stream_path(dto.camera)
+        camera_dir.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
         filepath = f"{camera_dir}/{dto.collection_id}.jpg"
         
         with open(filepath, 'wb') as f:

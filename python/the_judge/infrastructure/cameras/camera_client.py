@@ -96,10 +96,10 @@ class CameraClient:
         try:
             # connect & let the handlers take over
             await self.sio.connect(self.server_url)
+            print(f"Connected to {self.server_url}")
             await self.sio.wait()   # blocks until socket disconnect
-        except KeyboardInterrupt:
-            # allow Ctrl‑C to break us out
-            pass
+        except Exception as e:
+            print(f"Connection error: {e}")
         finally:
             # ensure we always clean up socket and camera
             try:
@@ -108,13 +108,18 @@ class CameraClient:
                     'action': 'unregister'
                 })
                 await self.sio.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Cleanup error: {e}")
             self.close()
 
 def main():
     cam = CameraClient()
-    asyncio.run(cam.run())
+    try:
+        asyncio.run(cam.run())
+    except KeyboardInterrupt:
+        print("\nShutting down camera client...")
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == '__main__':
     main()

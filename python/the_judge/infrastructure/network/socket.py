@@ -32,6 +32,11 @@ class SocketIOClient:
         s.event(lambda      : log.info("SocketIO connected  → %s", _URI))
         s.event(lambda      : log.warning("SocketIO disconnected"))
         s.event(lambda err  : log.error("SocketIO error      → %s", err))
+        
+        # Add catch-all event handler to see what events we're receiving
+        @s.event
+        def catch_all(event, *args):
+            log.info(f"Received event: {event} with args: {args}")
     
     async def _register_client(self):
         try:
