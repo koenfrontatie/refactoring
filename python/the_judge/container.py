@@ -1,5 +1,5 @@
 from settings import get_settings
-from infrastructure.network.socket import SocketIOClient
+from infrastructure.network.socket_client import SocketIOClient
 from application.services.camera_service import CameraService
 
 class Runtime:

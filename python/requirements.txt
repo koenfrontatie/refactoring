@@ -1,3 +1,6 @@
+# Python 3.9
+python_version == "3.9"
+
 # ---------------- GPU wheels (CUDA 12.1) ----------------
 --extra-index-url https://download.pytorch.org/whl/cu121
 
@@ -20,7 +23,8 @@ requests==2.31.0
 # ---------------- Speech & I/O --------------------------
 edge-tts==6.1.19
 aiofiles==24.1.0
-python-socketio[asyncio]==5.10.0
+python-socketio[asyncio_client]==5.11.2
+aiohttp==3.8.6
 randomname==0.2.1
 
 # ---------------- Misc utilities used by the code -------

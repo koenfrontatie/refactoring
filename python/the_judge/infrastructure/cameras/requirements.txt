@@ -1,0 +1,13 @@
+# Requires Python 3.10
+
+# OpenCV for camera capture
+opencv-python>=4.8.0
+
+# Socket.IO for server communication
+python-socketio>=5.10.0
+
+# HTTP client for Socket.IO (required for asyncio support)
+aiohttp>=3.8.0
+
+# NumPy compatibility (OpenCV requires <2.0)
+numpy>=1.21.0,<2.0.0

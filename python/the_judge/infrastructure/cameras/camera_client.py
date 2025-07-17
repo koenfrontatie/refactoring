@@ -8,11 +8,11 @@ import socket
 import platform
 
 # Configuration
-SERVER_HOSTNAME = ""      
+SERVER_HOSTNAME = ""            # Empty string means use localhost
 DEFAULT_SERVER_PORT = 8081      # Default socket port
 
 class CameraClient:
-    def _init_(self):
+    def __init__(self):
         self.camera_id = platform.node()
         self.camera = None
         self.sio = socketio.AsyncClient()
@@ -20,6 +20,7 @@ class CameraClient:
 
         @self.sio.event
         async def connect():
+            print(f"[{self.camera_id}] Connect event triggered")
             await self._register()
 
         @self.sio.on('camera.collect_frame')
@@ -49,9 +50,15 @@ class CameraClient:
     
 
     def read(self) -> bytes:
+        for _ in range(2):  # Clear buffer
+            ret, _ = self.camera.read()
+            if not ret:
+                break
+        
         ret, frame = self.camera.read()
         if not ret:
             raise RuntimeError(f"Failed to read from {self.camera_id}")
+        
         _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
         return buf.tobytes()
 
@@ -80,6 +87,10 @@ class CameraClient:
             print(f"[{self.camera_id}] Error capturing frame: {e}")
 
     def _find_server_ip(self) -> str:
+        if not SERVER_HOSTNAME:  # Empty string means use localhost
+            print("Using localhost")
+            return f"http://localhost:{DEFAULT_SERVER_PORT}"
+            
         try:
             server_ip = socket.gethostbyname(SERVER_HOSTNAME)
             print(f"Found {SERVER_HOSTNAME} at {server_ip}")
@@ -94,27 +105,30 @@ class CameraClient:
             return
 
         try:
-            # connect & let the handlers take over
+            print(f"Connecting to {self.server_url}...")
             await self.sio.connect(self.server_url)
+            print("Connected successfully")
             await self.sio.wait()   # blocks until socket disconnect
         except KeyboardInterrupt:
-            # allow Ctrl‑C to break us out
-            pass
+            print("Interrupted by user")
+        except Exception as e:
+            print(f"Error during connection: {e}")
         finally:
-            # ensure we always clean up socket and camera
+            print("Cleaning up...")
             try:
                 await self.sio.emit('camera.register', {
                     'camera': self.camera_id,
                     'action': 'unregister'
                 })
                 await self.sio.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Cleanup error: {e}")
             self.close()
+            print("Camera client stopped")
 
 def main():
     cam = CameraClient()
     asyncio.run(cam.run())
 
-if _name_ == '_main_':
+if __name__ == '__main__':
     main()
