@@ -1,0 +1,42 @@
+from pathlib import Path
+from typing import Optional
+from pydantic import Field, BaseModel
+
+class Settings(BaseModel):    
+    # App basics
+    app_name: str = "The Judge"
+    debug: bool = Field(default=False, env="DEBUG")
+    
+    # Network
+    socket_url: str = Field(default="ws://localhost:8081", env="SOCKET_URL")
+    
+    # Camera settings
+    capture_interval: float = Field(default=10.0, env="CAPTURE_INTERVAL")
+    
+    # Storage paths
+    storage_dir: Path = Field(default=Path("storage"), env="STORAGE_DIR")
+    stream_dir: Path = Field(default=Path("storage/stream"), env="STREAM_DIR")
+    database_url: str = Field(default="sqlite:///storage/db/tracking.db", env="DATABASE_URL")
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        
+    def get_stream_path(self, filename: str) -> Path:
+        return self.stream_dir / filename
+        
+    def get_tracking_db(self, filename: str) -> Path:
+        return self.database_url
+
+# Cached settings instance
+_settings: Optional[Settings] = None
+
+def get_settings() -> Settings:
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+        
+        _settings.storage_dir.mkdir(parents=True, exist_ok=True)
+        _settings.stream_dir.mkdir(parents=True, exist_ok=True)
+        
+    return _settings

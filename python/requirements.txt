@@ -29,8 +29,9 @@ tqdm==4.67.0
 pillow==11.0.0
 scikit-image==0.24.0
 scikit-learn==1.6.1
-python-dotenv==1.0.0
-pydantic[dotenv]==1.10.13
+python-dotenv
+pydantic[dotenv]
+pydantic-settings
 
 # ---------------- Database / ORM ---------------------------
 sqlalchemy>=2.0.0

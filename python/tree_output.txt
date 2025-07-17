@@ -1,88 +1,60 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 16-07-25 12:27:47.16
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 17-07-25 15:48:34.85
 ============================================================
 python
 |   .env
 |   .env.example
 |   .gitignore
-|   PLAN.md
+|   refactoring.code-workspace
 |   requirements.txt
 |   startvenv.bat
-+--- src
-|   +--- the_judge
-|   |   |   .gitignore
-|   |   |   container.py
-|   |   |   main.py
++--- the_judge
+|   |   .gitignore
+|   |   container.py
+|   |   main.py
+|   |   settings.py
+|   |   __init__.py
+|   +--- application
+|   |   |   dtos.py
 |   |   |   __init__.py
-|   |   +--- application
-|   |   |   |   dtos.py
-|   |   |   |   unit_of_work.py
+|   |   +--- commands
+|   |   |   |   capture.py
+|   |   |   |   process_frames.py
+|   |   |   |   register_camera.py
+|   |   |   |   toggle_capture.py
+|   |   +--- queries
+|   |   |   |   recent_visitors.py
+|   |   +--- services
+|   |   |   |   camera_service.py
+|   +--- common
+|   |   |   datetime_utils.py
+|   |   |   logger.py
+|   |   |   __init__.py
+|   +--- domain
+|   |   |   __init__.py
+|   |   +--- tracking
+|   |   |   |   commands.py
+|   |   |   |   model.py
+|   |   |   |   ports.py
 |   |   |   |   __init__.py
-|   |   |   +--- commands
-|   |   |   |   |   capture.py
-|   |   |   |   |   process_frames.py
-|   |   |   |   |   toggle_capture.py
-|   |   |   +--- queries
-|   |   |   |   |   recent_visitors.py
-|   |   |   +--- services
-|   |   |   |   |   camera_service.py
-|   |   |   |   |   content_service.py
-|   |   |   |   |   tracking_service.py
-|   |   +--- common
-|   |   |   |   datetime_utils.py
-|   |   |   |   logger.py
+|   +--- infrastructure
+|   |   |   __init__.py
+|   |   +--- cameras
+|   |   |   |   camera_client.py
 |   |   |   |   __init__.py
-|   |   +--- domain
+|   |   +--- db
+|   |   |   |   engine.py
+|   |   |   |   sqlalchemy_uow.py
 |   |   |   |   __init__.py
-|   |   |   +--- content
-|   |   |   |   |   control.py
-|   |   |   |   |   entities.py
-|   |   |   |   |   events.py
-|   |   |   |   |   repositories.py
+|   |   |   +--- models
+|   |   |   |   |   tracking_models.py
 |   |   |   |   |   __init__.py
-|   |   |   +--- tracking
-|   |   |   |   |   control.py
-|   |   |   |   |   entities.py
-|   |   |   |   |   events.py
-|   |   |   |   |   repositories.py
-|   |   |   |   |   __init__.py
-|   |   +--- infrastructure
-|   |   |   |   __init__.py
-|   |   |   +--- content
-|   |   |   +--- db
-|   |   |   |   |   engine.py
-|   |   |   |   |   sqlalchemy_uow.py
-|   |   |   |   |   __init__.py
-|   |   |   |   +--- models
-|   |   |   |   |   |   content_models.py
-|   |   |   |   |   |   tracking_models.py
-|   |   |   |   |   |   __init__.py
-|   |   |   |   +--- repositories
-|   |   |   |   |   |   content_repo.py
-|   |   |   |   |   |   tracking_repo.py
-|   |   |   +--- external
-|   |   |   |   |   openai_client.py
-|   |   |   |   |   photomaker_client.py
-|   |   |   |   |   sse_notifyer.py
-|   |   |   +--- hardware
-|   |   |   |   |   base.py
-|   |   |   |   |   remote_camera.py
-|   |   |   |   |   remote_camera_adapter.py
-|   |   |   |   |   usb_camera.py
-|   |   |   |   |   __init__.py
-|   |   |   +--- network
-|   |   |   |   |   handlers.py
-|   |   |   |   |   socket.py
-|   |   |   +--- tracking
-|   |   |   |   |   detector.py
-|   |   |   |   |   face_embedder.py
-|   |   |   |   |   matcher.py
-|   |   |   |   +--- models
-|   |   +--- presentation
-|   |   |   |   __init__.py
-|   |   |   +--- cli
-|   |   |   |   |   main.py
-|   |   +--- settings
-|   |   |   |   base.py
-|   |   |   |   __init__.py
-+--- tests
-|   |   socket_tester.py
+|   |   |   +--- repositories
+|   |   |   |   |   tracking_repo.py
+|   |   +--- network
+|   |   |   |   handlers.py
+|   |   |   |   socket.py
+|   |   +--- tracking
+|   |   |   |   detector.py
+|   |   |   |   face_embedder.py
+|   |   |   |   matcher.py
+|   |   |   +--- models

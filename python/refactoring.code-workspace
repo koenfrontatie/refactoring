@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+ 
+
+    // if you’re on Windows, use this instead:
+ "python.defaultInterpreterPath": "${workspaceFolder}/venv/Scripts/python.exe"
+    
+    // (Older VS Code versions used `python.pythonPath`—if you still have that,
+    // you can set it here the same way.)
+    // "python.pythonPath": "${workspaceFolder}/venv/bin/python"
+  }
+}
