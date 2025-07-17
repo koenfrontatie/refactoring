@@ -2,25 +2,12 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
-from the_judge.domain.tracking.entities import Camera
+from the_judge.application.dtos import CameraFrameDTO
 
 class CameraAdapter(ABC):
     """Abstract base for camera adapters."""
-    
-    def __init__(self, camera: Camera):
-        self.camera = camera
-    
+
     @abstractmethod
-    async def initialize(self) -> bool:
-        """Initialize the camera."""
-        pass
-    
-    @abstractmethod
-    async def capture_frame(self, filename: str) -> Optional[Path]:
-        """Capture a single frame and save to file."""
-        pass
-    
-    @abstractmethod
-    def shutdown(self):
-        """Clean shutdown."""
+    async def capture_frame(self, filename: str) -> list[CameraFrameDTO]:
+        """Capture all cameras on a device and return a list of CameraFrameDTO."""
         pass
