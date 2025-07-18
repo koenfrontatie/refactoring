@@ -1,0 +1,15 @@
+{
+  "name": "socket-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for The Judge",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "koenfrontatie",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "socket.io": "^4.8.1"
+  }
+}

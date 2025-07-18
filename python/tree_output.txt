@@ -1,12 +1,16 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 17-07-25 15:48:34.85
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 18-07-25 15:52:38.58
 ============================================================
 python
 |   .env
 |   .env.example
 |   .gitignore
+|   python
 |   refactoring.code-workspace
 |   requirements.txt
 |   startvenv.bat
++--- scripts
+|   |   socket_test_cli.py
+|   |   __init__.py
 +--- the_judge
 |   |   .gitignore
 |   |   container.py
@@ -16,13 +20,6 @@ python
 |   +--- application
 |   |   |   dtos.py
 |   |   |   __init__.py
-|   |   +--- commands
-|   |   |   |   capture.py
-|   |   |   |   process_frames.py
-|   |   |   |   register_camera.py
-|   |   |   |   toggle_capture.py
-|   |   +--- queries
-|   |   |   |   recent_visitors.py
 |   |   +--- services
 |   |   |   |   camera_service.py
 |   +--- common
@@ -39,7 +36,10 @@ python
 |   +--- infrastructure
 |   |   |   __init__.py
 |   |   +--- cameras
+|   |   |   |   .gitignore
 |   |   |   |   camera_client.py
+|   |   |   |   requirements.txt
+|   |   |   |   startvenv.bat
 |   |   |   |   __init__.py
 |   |   +--- db
 |   |   |   |   engine.py
@@ -52,9 +52,10 @@ python
 |   |   |   |   |   tracking_repo.py
 |   |   +--- network
 |   |   |   |   handlers.py
-|   |   |   |   socket.py
+|   |   |   |   socket_client.py
 |   |   +--- tracking
 |   |   |   |   detector.py
 |   |   |   |   face_embedder.py
+|   |   |   |   frame_collector.py
 |   |   |   |   matcher.py
 |   |   |   +--- models

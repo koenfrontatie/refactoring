@@ -1,12 +1,9 @@
 # src/domain/ports.py
 from abc import ABC, abstractmethod
 from typing import List, Protocol
-from .model import CameraDescriptor, Frame
+from tracking.model import Frame
 
-class CameraPort(ABC):
+class FrameCollectorPort(ABC):
     @abstractmethod
-    def open(self) -> None: ...
-    @abstractmethod
-    def read(self) -> Frame: ...
-    @abstractmethod
-    def close(self) -> None: ...
+    def collect_frames(self, camera_id: str) -> set[Frame]:
+        pass
