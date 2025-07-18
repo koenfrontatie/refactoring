@@ -22,7 +22,12 @@ class CameraClient:
         async def connect():
             print(f"[{self.device_id}] Connect event triggered")
             await self._register()
-
+        
+        @self.sio.event  
+        async def reconnect():
+            print(f"[{self.device_id}] Reconnected, re-registering...")
+            await self._register()
+            
         @self.sio.on('camera.collect_frame')
         async def camera_collect_frame(payload):
             await self._on_collect(payload)

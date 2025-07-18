@@ -10,6 +10,7 @@ _URI = get_settings().socket_url.replace("ws://", "http://").replace("wss://", "
 class SocketIOClient:
     def __init__(self, camera_service) -> None:
         self.sio = socketio.AsyncClient(reconnection=True)
+            
         self._install_basic_logs()
         reg_handlers(self.sio, camera_service)
 
@@ -27,16 +28,27 @@ class SocketIOClient:
         except asyncio.TimeoutError:
             log.warning("ACK timeout for %s", event)
 
-    def _install_basic_logs(self):
-        s = self.sio
-        s.event(lambda      : log.info("SocketIO connected  → %s", _URI))
-        s.event(lambda      : log.warning("SocketIO disconnected"))
-        s.event(lambda err  : log.error("SocketIO error      → %s", err))
+    def _install_basic_logs(self) -> None:
+        """Attach Socket.IO lifecycle loggers."""
+        sio = self.sio
+
+        @sio.event         # → 'connect'
+        async def connect() -> None:
+            log.info("SocketIO connected → %s", _URI)
+
+        @sio.event         # → 'disconnect'
+        async def disconnect() -> None:
+            log.warning("SocketIO disconnected")
+
+        @sio.event         # → 'connect_error'
+        async def connect_error(err: Exception) -> None:
+            log.error("SocketIO connection error → %s", err)
         
-        # Add catch-all event handler to see what events we're receiving
-        @s.event
-        def catch_all(event, *args):
-            log.info(f"Received event: {event} with args: {args}")
+        @self.sio.event
+        async def reconnect():
+            print(f"[{self.device_id}] Reconnected, re-registering...")
+            await self._register_client()
+
     
     async def _register_client(self):
         try:
