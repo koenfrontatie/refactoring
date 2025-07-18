@@ -1,7 +1,7 @@
 # infrastructure/network/socket.py
 import asyncio, logging, socketio, uuid
 from settings import get_settings
-from .handlers import register as reg_handlers
+from entrypoints.handlers import register as reg_handlers
 
 log = logging.getLogger("SocketIOClient")
 

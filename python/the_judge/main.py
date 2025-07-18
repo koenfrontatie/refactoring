@@ -1,17 +1,20 @@
 import asyncio
 from container import build_runtime          
+from common import logger
+
+logger.setup_logger("main")
 
 async def main() -> None:
-    rt = build_runtime()       
+    app = build_runtime()       
     
     try:
-        await rt.ws_client.connect()
+        await app.ws_client.connect()
     except KeyboardInterrupt:
             # allow Ctrl‑C to break us out
             pass
     finally:
         try:
-            await rt.ws_client.disconnect()
+            await app.ws_client.disconnect()
         except Exception:
             pass
 if __name__ == "__main__":

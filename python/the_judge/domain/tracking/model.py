@@ -55,7 +55,8 @@ class Body:
 
 @dataclass
 class Camera:
-    id: int           
+    id: int 
+    name: str          
     state: str
     captured_at: datetime
     created_at: datetime

@@ -13,14 +13,14 @@ DEFAULT_SERVER_PORT = 8081      # Default socket port
 
 class CameraClient:
     def __init__(self):
-        self.camera_id = platform.node()
+        self.device_id = platform.node()
         self.camera = None
         self.sio = socketio.AsyncClient()
         self.server_url = self._find_server_ip()
 
         @self.sio.event
         async def connect():
-            print(f"[{self.camera_id}] Connect event triggered")
+            print(f"[{self.device_id}] Connect event triggered")
             await self._register()
 
         @self.sio.on('camera.collect_frame')
@@ -57,7 +57,7 @@ class CameraClient:
         
         ret, frame = self.camera.read()
         if not ret:
-            raise RuntimeError(f"Failed to read from {self.camera_id}")
+            raise RuntimeError(f"Failed to read from {self.device_id}")
         
         _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
         return buf.tobytes()
@@ -67,10 +67,15 @@ class CameraClient:
 
     async def _register(self):
         await self.sio.emit('camera.register', {
-            'camera': self.camera_id,
-            'action': 'register'
+            'camera_name': self.device_id,
         })
-        print(f"[{self.camera_id}] Registered")
+        print(f"[{self.device_id}] Registered")
+
+    async def _unregister(self):
+        await self.sio.emit('camera.unregister', {
+            'camera_name': self.device_id,
+        })
+        print(f"[{self.device_id}] Unregistered")
 
     async def _on_collect(self, payload):
         collection_id = payload.get('collection_id')
@@ -78,15 +83,15 @@ class CameraClient:
             jpg = self.read()
             await self.sio.emit('camera.frame', {
                 'collection_id': collection_id,
-                'camera': self.camera_id,
-                'bytes': jpg
+                'camera_name': self.device_id,
+                'frame_data': jpg
             })
-            print(f"[{self.camera_id}] Sent frame '{collection_id}'")
+            print(f"[{self.device_id}] Sent frame '{collection_id}'")
         except Exception as e:
-            print(f"[{self.camera_id}] Error capturing frame: {e}")
+            print(f"[{self.device_id}] Error capturing frame: {e}")
 
     def _find_server_ip(self) -> str:
-        if not SERVER_HOSTNAME:  # Empty string means use localhost
+        if not SERVER_HOSTNAME:  
             print("Using localhost")
             return f"http://localhost:{DEFAULT_SERVER_PORT}"
             
@@ -115,10 +120,7 @@ class CameraClient:
         finally:
             print("Cleaning up...")
             try:
-                await self.sio.emit('camera.register', {
-                    'camera': self.camera_id,
-                    'action': 'unregister'
-                })
+                await self._unregister()
                 await self.sio.disconnect()
             except Exception as e:
                 print(f"Cleanup error: {e}")
