@@ -11,4 +11,4 @@ class CollectionRequestDTO(BaseModel):
 class CaptureResponseDTO(BaseModel):
     collection_id: str
     camera: str
-    b64: str
+    bytes: bytes

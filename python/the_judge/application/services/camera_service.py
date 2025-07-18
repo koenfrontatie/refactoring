@@ -19,22 +19,13 @@ class CameraService:
         if dto.camera not in self._cameras:
             logger.warning(f"Camera {dto.camera} is not registered.")
             return
-        
-        try:
-            if dto.b64.startswith('data:image/'):
-                dto.b64 = dto.b64.split(',')[1]
-                
-            frame_bytes = base64.b64decode(dto.b64)
-        except Exception as e:
-            logger.error(f"Failed to decode frame data from {dto.camera}: {e}")
-            return
             
         camera_dir = self.cfg.get_stream_path(dto.camera)
         camera_dir.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
         filepath = f"{camera_dir}/{dto.collection_id}.jpg"
         
         with open(filepath, 'wb') as f:
-            f.write(frame_bytes)
+            f.write(dto.bytes)
             
         logger.debug(f"Saved frame from {dto.camera}")
 

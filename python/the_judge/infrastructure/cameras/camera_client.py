@@ -76,11 +76,10 @@ class CameraClient:
         collection_id = payload.get('collection_id')
         try:
             jpg = self.read()
-            b64 = base64.b64encode(jpg).decode('utf-8')
             await self.sio.emit('camera.frame', {
                 'collection_id': collection_id,
                 'camera': self.camera_id,
-                'b64': b64
+                'bytes': jpg
             })
             print(f"[{self.camera_id}] Sent frame '{collection_id}'")
         except Exception as e:

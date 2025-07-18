@@ -39,16 +39,16 @@ def register(sio, camera_service: CameraService):
         logger.info(f"Received camera frame event: {payload}")
         collection_id = payload.get('collection_id')
         camera = payload.get('camera')
-        b64 = payload.get('b64')
-        
-        if not all([collection_id, camera, b64]):
-            logger.warning(f"Incomplete frame data: collection_id={collection_id}, camera={camera}, b64={'present' if b64 else 'missing'}")
+        bytes = payload.get('bytes')
+
+        if not all([collection_id, camera, bytes]):
+            logger.warning(f"Incomplete frame data: collection_id={collection_id}, camera={camera}, bytes={'present' if bytes else 'missing'}")
             return
             
         dto = CaptureResponseDTO(
             collection_id=collection_id,
             camera=camera,
-            b64=b64
+            bytes=bytes
         )
         await camera_service.ingest_frame(dto)
         logger.info(f"Frame from {camera} processed successfully")
