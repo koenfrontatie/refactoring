@@ -1,22 +1,18 @@
-# domain/tracking/model.py
+from dataclasses import dataclass, asdict
 from datetime import datetime
-import numpy as np
-from pydantic import BaseModel
 from typing import Optional
+import numpy as np
 
-class Frame(BaseModel):
-    """Frame value object."""
+@dataclass
+class Frame:
     camera_name: str
     captured_at: datetime
     uuid: str
     collection_id: Optional[int] = None
     id: Optional[int] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-
-class Face(BaseModel):
-    """Face value object."""
+@dataclass
+class Face:
     frame: Frame
     bbox: tuple
     embedding: np.ndarray
@@ -31,44 +27,30 @@ class Face(BaseModel):
     sex: Optional[str] = None
     id: Optional[int] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-
-class Body(BaseModel):
-    """Body value object."""
+@dataclass
+class Body:
     frame: Frame
     bbox: tuple
     captured_at: datetime
     uuid: str
     id: Optional[int] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-
-class Detection(BaseModel):
-    """Detection value object."""
+@dataclass
+class Detection:
     frame: Frame
     visitor_record: dict
     captured_at: datetime
     uuid: str
     id: Optional[int] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-
-class Collection(BaseModel):
-    """Collection value object."""
+@dataclass
+class Collection:
     created_at: datetime
     uuid: str
     id: Optional[int] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-
-# ====== Entities ======
-
-class Camera(BaseModel):
-    """Camera entity."""
+@dataclass
+class Camera:
     name: str
     state: str
     captured_at: datetime
@@ -76,11 +58,8 @@ class Camera(BaseModel):
     uuid: str
     id: Optional[int] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-
-class Visitor(BaseModel):
-    """Visitor entity."""
+@dataclass
+class Visitor:
     name: str
     state: str
     face: Face
@@ -90,12 +69,8 @@ class Visitor(BaseModel):
     uuid: str
     id: Optional[int] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-
     def record(self) -> dict:
-        """Return visitor data as dictionary for detection snapshots."""
-        visitor_record = VisitorRecord(
+        return dict(
             id=self.id,
             name=self.name,
             state=self.state,
@@ -105,18 +80,3 @@ class Visitor(BaseModel):
             created_at=self.created_at,
             uuid=self.uuid
         )
-        return visitor_record.dict()
-
-class VisitorRecord(BaseModel):
-    """Pydantic model for visitor serialization."""
-    id: Optional[int] = None
-    name: str
-    state: str
-    face_id: Optional[int] = None
-    body_id: Optional[int] = None
-    captured_at: datetime
-    created_at: datetime
-    uuid: str
-
-    class Config:
-        arbitrary_types_allowed = True

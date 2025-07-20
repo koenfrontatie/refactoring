@@ -37,16 +37,14 @@ class FrameCollectorAdapter(FrameCollectorPort):
         filepath = collection_dir / f"{command.camera_name}.jpg"
         filepath.write_bytes(command.frame_data)
         
-        # Create Frame domain object and save to database
-        frame = Frame(
-            camera_name=command.camera_name,
-            captured_at=datetime.now(),
-            uuid=str(uuid.uuid4()),
-            collection_id=None
-        )
-        
         # Save to database using UoW pattern
         with self.uow as uow:
+            frame = Frame(
+                camera_name=command.camera_name,
+                captured_at=datetime.now(),
+                uuid=str(uuid.uuid4()),
+                collection_id=None
+            )
             uow.frames.add(frame)
             uow.commit()
         

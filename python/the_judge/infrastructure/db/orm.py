@@ -3,13 +3,12 @@ from sqlalchemy import (
     Table, Column, Integer, String, DateTime, Float, 
     ForeignKey, MetaData, PickleType, JSON
 )
-from sqlalchemy.orm import mapper, relationship
+from sqlalchemy.orm import registry, relationship
 
-from domain.tracking import model
+from the_judge.domain.tracking import model
 
 metadata = MetaData()
-
-# ====== Table Definitions ======
+mapper_registry = registry()
 
 collections = Table(
     'collections',
@@ -67,14 +66,24 @@ detections = Table(
     Column('uuid', String(36), nullable=False, unique=True),
 )
 
-# ====== Mapper Configuration ======
-
 def start_mappers():
-    """Configure SQLAlchemy mappers following Cosmic Python approach."""
-    
-    # Simple direct mapping - no relationships for now
-    mapper(model.Collection, collections)
-    mapper(model.Frame, frames)
-    mapper(model.Face, faces)
-    mapper(model.Body, bodies)
-    mapper(model.Detection, detections)
+    mapper_registry.map_imperatively(model.Collection, collections)
+    mapper_registry.map_imperatively(model.Frame, frames)
+    mapper_registry.map_imperatively(
+        model.Face, faces,
+        properties={
+            'frame': relationship(model.Frame, lazy='joined')
+        }
+    )
+    mapper_registry.map_imperatively(
+        model.Body, bodies,
+        properties={
+            'frame': relationship(model.Frame, lazy='joined')
+        }
+    )
+    mapper_registry.map_imperatively(
+        model.Detection, detections,
+        properties={
+            'frame': relationship(model.Frame, lazy='joined')
+        }
+    )
