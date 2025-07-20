@@ -2,7 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Union, Optional
 
-from common.logger import setup_logger
+from the_judge.common.logger import setup_logger
 
 logger = setup_logger('DateTimeUtils')
 

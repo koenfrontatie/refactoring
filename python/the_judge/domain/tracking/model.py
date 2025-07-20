@@ -1,70 +1,86 @@
-# src/domain/model.py
-from __future__ import annotations  
-from dataclasses import dataclass, asdict
+# domain/tracking/model.py
 from datetime import datetime
 import numpy as np
+from pydantic import BaseModel
+from typing import Optional
 
-@dataclass(frozen=True)
-class Frame:
-    id: int
+class Frame(BaseModel):
+    """Frame value object."""
     camera_name: str
     captured_at: datetime
     uuid: str
-    collection_id: int = None
+    collection_id: Optional[int] = None
+    id: Optional[int] = None
 
-@dataclass(frozen=True)
-class Detection:
-    id: int
+    class Config:
+        arbitrary_types_allowed = True
+
+class Face(BaseModel):
+    """Face value object."""
     frame: Frame
-    visitor_record: dict
-    captured_at: datetime
-    uuid: str
-
-@dataclass(frozen=True)
-class Collection:
-    id: int
-    created_at: datetime
-    frames: set[Frame]  
-    uuid: str
-
-@dataclass(frozen=True)
-class Face:
-    id: int
-    frame: Frame
-    bbox: tuple[int, int, int, int] # (x1, y1, x2, y2)
+    bbox: tuple
     embedding: np.ndarray
     normed_embedding: np.ndarray
     embedding_norm: float
     det_score: float
-    captured_at: datetime   
-    uuid: str
-    quality_score: float = None
-    pose: str = None
-    age: int = None
-    sex: str = None
-
-@dataclass(frozen=True)
-class Body:
-    id: int
-    frame: Frame
-    bbox: tuple[int, int, int, int]  # (x1, y1, x2, y2)
     captured_at: datetime
     uuid: str
+    quality_score: Optional[float] = None
+    pose: Optional[str] = None
+    age: Optional[int] = None
+    sex: Optional[str] = None
+    id: Optional[int] = None
 
-# ---- Entities ----
+    class Config:
+        arbitrary_types_allowed = True
 
-@dataclass
-class Camera:
-    id: int 
-    name: str          
+class Body(BaseModel):
+    """Body value object."""
+    frame: Frame
+    bbox: tuple
+    captured_at: datetime
+    uuid: str
+    id: Optional[int] = None
+
+    class Config:
+        arbitrary_types_allowed = True
+
+class Detection(BaseModel):
+    """Detection value object."""
+    frame: Frame
+    visitor_record: dict
+    captured_at: datetime
+    uuid: str
+    id: Optional[int] = None
+
+    class Config:
+        arbitrary_types_allowed = True
+
+class Collection(BaseModel):
+    """Collection value object."""
+    created_at: datetime
+    uuid: str
+    id: Optional[int] = None
+
+    class Config:
+        arbitrary_types_allowed = True
+
+# ====== Entities ======
+
+class Camera(BaseModel):
+    """Camera entity."""
+    name: str
     state: str
     captured_at: datetime
     created_at: datetime
     uuid: str
+    id: Optional[int] = None
 
-@dataclass
-class Visitor:
-    id: int
+    class Config:
+        arbitrary_types_allowed = True
+
+class Visitor(BaseModel):
+    """Visitor entity."""
     name: str
     state: str
     face: Face
@@ -72,7 +88,35 @@ class Visitor:
     captured_at: datetime
     created_at: datetime
     uuid: str
+    id: Optional[int] = None
+
+    class Config:
+        arbitrary_types_allowed = True
 
     def record(self) -> dict:
-        return asdict(self)
+        """Return visitor data as dictionary for detection snapshots."""
+        visitor_record = VisitorRecord(
+            id=self.id,
+            name=self.name,
+            state=self.state,
+            face_id=self.face.id if self.face else None,
+            body_id=self.body.id if self.body else None,
+            captured_at=self.captured_at,
+            created_at=self.created_at,
+            uuid=self.uuid
+        )
+        return visitor_record.dict()
 
+class VisitorRecord(BaseModel):
+    """Pydantic model for visitor serialization."""
+    id: Optional[int] = None
+    name: str
+    state: str
+    face_id: Optional[int] = None
+    body_id: Optional[int] = None
+    captured_at: datetime
+    created_at: datetime
+    uuid: str
+
+    class Config:
+        arbitrary_types_allowed = True

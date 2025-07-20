@@ -10,7 +10,7 @@ class AbstractUnitOfWork(abc.ABC):
     """Abstract Unit of Work interface following Cosmic Python patterns."""
     
     # Repository instances
-    tracking: AbstractRepository
+    frames: AbstractRepository
     
     def __enter__(self) -> "AbstractUnitOfWork":
         return self
@@ -41,7 +41,7 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
     def __enter__(self):
         self.session: Session = self.session_factory()
         # Initialize repository with current session
-        self.tracking = SqlAlchemyRepository(self.session)
+        self.frames = SqlAlchemyRepository(self.session)
         return super().__enter__()
     
     def __exit__(self, *args):
