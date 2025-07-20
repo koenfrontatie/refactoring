@@ -1,73 +1,73 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Optional
 import numpy as np
 
 @dataclass
 class Frame:
-    camera_name: str
-    captured_at: datetime
-    uuid: str
-    collection_id: Optional[int] = None
-    id: Optional[int] = None
+    id: Optional[int] = field(default=None)
+    camera_name: str = field()
+    captured_at: datetime = field()
+    collection_id: Optional[int] = field(default=None)
+    uuid: str = field()
 
 @dataclass
 class Face:
-    frame: Frame
-    bbox: tuple
-    embedding: np.ndarray
-    normed_embedding: np.ndarray
-    embedding_norm: float
-    det_score: float
-    captured_at: datetime
-    uuid: str
-    quality_score: Optional[float] = None
-    pose: Optional[str] = None
-    age: Optional[int] = None
-    sex: Optional[str] = None
-    id: Optional[int] = None
+    id: Optional[int] = field(default=None)
+    frame: Frame = field()
+    bbox: tuple = field()
+    embedding: np.ndarray = field()
+    normed_embedding: np.ndarray = field()
+    embedding_norm: float = field()
+    det_score: float = field()
+    quality_score: Optional[float] = field(default=None)
+    pose: Optional[str] = field(default=None)
+    age: Optional[int] = field(default=None)
+    sex: Optional[str] = field(default=None)
+    captured_at: datetime = field()
+    uuid: str = field()
 
 @dataclass
 class Body:
-    frame: Frame
-    bbox: tuple
-    captured_at: datetime
-    uuid: str
-    id: Optional[int] = None
+    id: Optional[int] = field(default=None)
+    frame: Frame = field()
+    bbox: tuple = field()
+    captured_at: datetime = field()
+    uuid: str = field()
 
 @dataclass
 class Detection:
-    frame: Frame
-    visitor_record: dict
-    captured_at: datetime
-    uuid: str
-    id: Optional[int] = None
+    id: Optional[int] = field(default=None)
+    frame: Frame = field()
+    visitor_record: dict = field()
+    captured_at: datetime = field()
+    uuid: str = field()
 
 @dataclass
 class Collection:
-    created_at: datetime
-    uuid: str
-    id: Optional[int] = None
+    id: Optional[int] = field(default=None)
+    created_at: datetime = field()
+    uuid: str = field()
 
 @dataclass
 class Camera:
-    name: str
-    state: str
-    captured_at: datetime
-    created_at: datetime
-    uuid: str
-    id: Optional[int] = None
+    id: Optional[int] = field(default=None)
+    name: str = field()
+    state: str = field()
+    captured_at: datetime = field()
+    created_at: datetime = field()
+    uuid: str = field()
 
 @dataclass
 class Visitor:
-    name: str
-    state: str
-    face: Face
-    body: Body
-    captured_at: datetime
-    created_at: datetime
-    uuid: str
-    id: Optional[int] = None
+    id: Optional[int] = field(default=None)
+    name: str = field()
+    state: str = field()
+    face: Face = field()
+    body: Body = field()
+    captured_at: datetime = field()
+    created_at: datetime = field()
+    uuid: str = field()
 
     def record(self) -> dict:
         return dict(

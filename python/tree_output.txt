@@ -1,4 +1,4 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 20-07-25 16:21:37.06
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 20-07-25 17:49:15.70
 ============================================================
 python
 |   .env
@@ -6,7 +6,6 @@ python
 |   .gitignore
 |   refactoring.code-workspace
 |   requirements.txt
-|   setup_database.py
 |   startvenv.bat
 +--- scripts
 |   |   socket_test_gui.py

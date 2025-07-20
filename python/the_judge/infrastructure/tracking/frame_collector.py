@@ -43,7 +43,7 @@ class FrameCollectorAdapter(FrameCollectorPort):
                 camera_name=command.camera_name,
                 captured_at=datetime.now(),
                 uuid=str(uuid.uuid4()),
-                collection_id=None
+                collection_id=command.collection_id
             )
             uow.frames.add(frame)
             uow.commit()
