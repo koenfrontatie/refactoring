@@ -3,14 +3,12 @@ import abc
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-from the_judge.infrastructure.db.repository import AbstractRepository, SqlAlchemyRepository
+from the_judge.infrastructure.db.repositories.tracking_repo import AbstractTrackingRepository, SqlAlchemyTrackingRepository
 
 
 class AbstractUnitOfWork(abc.ABC):
-    """Abstract Unit of Work interface following Cosmic Python patterns."""
     
-    # Repository instances
-    frames: AbstractRepository
+    tracking: AbstractTrackingRepository
     
     def __enter__(self) -> "AbstractUnitOfWork":
         return self
@@ -28,11 +26,9 @@ class AbstractUnitOfWork(abc.ABC):
 
 
 class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
-    """SQLAlchemy implementation of Unit of Work."""
     
     def __init__(self, session_factory: sessionmaker = None):
         if session_factory is None:
-            # Default session factory - replace with your actual DB config
             from .engine import get_session_factory
             self.session_factory = get_session_factory()
         else:
@@ -40,8 +36,7 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
     
     def __enter__(self):
         self.session: Session = self.session_factory()
-        # Initialize repository with current session
-        self.frames = SqlAlchemyRepository(self.session)
+        self.tracking = SqlAlchemyTrackingRepository(self.session)
         return super().__enter__()
     
     def __exit__(self, *args):

@@ -45,7 +45,7 @@ class FrameCollectorAdapter(FrameCollectorPort):
                 uuid=str(uuid.uuid4()),
                 collection_id=command.collection_id
             )
-            uow.frames.add(frame)
+            uow.tracking.add_frame(frame)
             uow.commit()
         
         print(f"Saved frame from {command.camera_name} to {filepath.absolute()} and database")

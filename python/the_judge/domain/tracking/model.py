@@ -14,7 +14,7 @@ class Frame:
 @dataclass
 class Face:
     id: Optional[int] = field(default=None)
-    frame: Frame = field()
+    frame_id: int = field()
     bbox: tuple = field()
     embedding: np.ndarray = field()
     normed_embedding: np.ndarray = field()
@@ -30,7 +30,7 @@ class Face:
 @dataclass
 class Body:
     id: Optional[int] = field(default=None)
-    frame: Frame = field()
+    frame_id: int = field()
     bbox: tuple = field()
     captured_at: datetime = field()
     uuid: str = field()
@@ -38,7 +38,9 @@ class Body:
 @dataclass
 class Detection:
     id: Optional[int] = field(default=None)
-    frame: Frame = field()
+    frame_id: int = field()
+    face_id: Optional[int] = field(default=None)
+    body_id: Optional[int] = field(default=None)
     visitor_record: dict = field()
     captured_at: datetime = field()
     uuid: str = field()
@@ -63,8 +65,8 @@ class Visitor:
     id: Optional[int] = field(default=None)
     name: str = field()
     state: str = field()
-    face: Face = field()
-    body: Body = field()
+    face_id: int = field()
+    body_id: int = field()
     captured_at: datetime = field()
     created_at: datetime = field()
     uuid: str = field()
@@ -74,8 +76,8 @@ class Visitor:
             id=self.id,
             name=self.name,
             state=self.state,
-            face_id=self.face.id if self.face else None,
-            body_id=self.body.id if self.body else None,
+            face_id=self.face_id,
+            body_id=self.body_id,
             captured_at=self.captured_at,
             created_at=self.created_at,
             uuid=self.uuid

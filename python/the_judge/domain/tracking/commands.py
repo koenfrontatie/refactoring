@@ -13,3 +13,6 @@ class RegisterCameraCommand(BaseModel):
 
 class UnregisterCameraCommand(BaseModel):
     camera_name: str
+
+class ProcessFrameCommand(BaseModel):
+    frame_id: int
