@@ -1,8 +1,9 @@
 import asyncio
-from container import build_runtime          
-from common import logger
 
-logger.setup_logger("main")
+from the_judge.common.logger import setup_logger
+from the_judge.container import build_runtime
+
+logger = setup_logger("main")
 
 async def main() -> None:
     app = build_runtime()       

@@ -1,16 +1,16 @@
 # src/domain/model.py
 from __future__ import annotations  
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime
 import numpy as np
-from attr import asdict
 
 @dataclass(frozen=True)
 class Frame:
     id: int
-    camera: Camera
+    camera_name: str
     captured_at: datetime
     uuid: str
+    collection_id: int = None
 
 @dataclass(frozen=True)
 class Detection:
@@ -36,12 +36,12 @@ class Face:
     normed_embedding: np.ndarray
     embedding_norm: float
     det_score: float
-    quality_score: float
-    pose: str
-    age: int
-    sex: str
     captured_at: datetime   
     uuid: str
+    quality_score: float = None
+    pose: str = None
+    age: int = None
+    sex: str = None
 
 @dataclass(frozen=True)
 class Body:

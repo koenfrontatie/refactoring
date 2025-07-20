@@ -1,10 +1,11 @@
-from domain.tracking.commands import StartCollectionCommand, IngestFrameCommand, RegisterCameraCommand, UnregisterCameraCommand
-from domain.tracking.ports import FrameCollectorPort
-from common import datetime_utils
-from common.logger import setup_logger
-
 from enum import Enum
+
 from pydantic import ValidationError
+
+from the_judge.common.datetime_utils import now
+from the_judge.common.logger import setup_logger
+from the_judge.domain.tracking.commands import StartCollectionCommand, IngestFrameCommand, RegisterCameraCommand, UnregisterCameraCommand
+from the_judge.domain.tracking.ports import FrameCollectorPort
 
 logger = setup_logger('SocketHandlers')
 
@@ -42,7 +43,7 @@ def register(sio, frame_collector: FrameCollectorPort):
     async def trigger_collection(payload):
         try:
             command = StartCollectionCommand(
-                collection_id=datetime_utils.now().strftime("%Y%m%d%H%M%S")
+                collection_id=now().strftime("%Y%m%d%H%M%S")
             )
         except ValidationError as e:
             logger.warning(f"Invalid trigger collection payload: {e}")

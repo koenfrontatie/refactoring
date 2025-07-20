@@ -1,15 +1,16 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 18-07-25 15:52:38.58
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 20-07-25 16:21:37.06
 ============================================================
 python
 |   .env
 |   .env.example
 |   .gitignore
-|   python
 |   refactoring.code-workspace
 |   requirements.txt
+|   setup_database.py
 |   startvenv.bat
 +--- scripts
-|   |   socket_test_cli.py
+|   |   socket_test_gui.py
+|   |   start_gui.bat
 |   |   __init__.py
 +--- the_judge
 |   |   .gitignore
@@ -18,10 +19,7 @@ python
 |   |   settings.py
 |   |   __init__.py
 |   +--- application
-|   |   |   dtos.py
 |   |   |   __init__.py
-|   |   +--- services
-|   |   |   |   camera_service.py
 |   +--- common
 |   |   |   datetime_utils.py
 |   |   |   logger.py
@@ -33,6 +31,10 @@ python
 |   |   |   |   model.py
 |   |   |   |   ports.py
 |   |   |   |   __init__.py
+|   +--- entrypoints
+|   |   |   handlers.py
+|   |   |   socket_client.py
+|   |   |   __init__.py
 |   +--- infrastructure
 |   |   |   __init__.py
 |   |   +--- cameras
@@ -43,16 +45,15 @@ python
 |   |   |   |   __init__.py
 |   |   +--- db
 |   |   |   |   engine.py
-|   |   |   |   sqlalchemy_uow.py
+|   |   |   |   orm.py
+|   |   |   |   repository.py
+|   |   |   |   unit_of_work.py
 |   |   |   |   __init__.py
 |   |   |   +--- models
 |   |   |   |   |   tracking_models.py
 |   |   |   |   |   __init__.py
 |   |   |   +--- repositories
 |   |   |   |   |   tracking_repo.py
-|   |   +--- network
-|   |   |   |   handlers.py
-|   |   |   |   socket_client.py
 |   |   +--- tracking
 |   |   |   |   detector.py
 |   |   |   |   face_embedder.py

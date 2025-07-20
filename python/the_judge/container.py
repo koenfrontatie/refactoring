@@ -1,6 +1,7 @@
-from settings import get_settings
-from entrypoints.socket_client import SocketIOClient
-from infrastructure.tracking.frame_collector import FrameCollectorAdapter
+from the_judge.entrypoints.socket_client import SocketIOClient
+from the_judge.infrastructure.db.engine import initialize_database
+from the_judge.infrastructure.tracking.frame_collector import FrameCollectorAdapter
+from the_judge.settings import get_settings
 
 class Runtime:
 
@@ -9,10 +10,14 @@ class Runtime:
         self.frame_collector = frame_collector
 
     def shutdown(self):
-        self.frame_collector.shutdown_all()
+        # Add any cleanup logic here if needed
+        print("Runtime shutting down...")
 
 
 def build_runtime() -> Runtime:
+    # Initialize database on startup
+    print("Initializing database...")
+    initialize_database()
     
     frame_collector = FrameCollectorAdapter()
 

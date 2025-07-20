@@ -1,7 +1,9 @@
-from pydantic import BaseModel
-from common import datetime_utils
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
+
+from pydantic import BaseModel
+
+from the_judge.common.datetime_utils import now
 
 class StartCollectionCommand(BaseModel):
     collection_id: str
