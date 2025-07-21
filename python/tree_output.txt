@@ -1,4 +1,4 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 21-07-25 13:38:55.16
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 21-07-25 15:44:10.84
 ============================================================
 python
 |   .env
@@ -7,6 +7,7 @@ python
 |   refactoring.code-workspace
 |   requirements.txt
 |   startvenv.bat
+|   temp_frame_processing_service.py
 +--- scripts
 |   |   socket_test_gui.py
 |   |   start_gui.bat
@@ -18,14 +19,14 @@ python
 |   |   settings.py
 |   |   __init__.py
 |   +--- application
-|   |   |   face_recognition_service.py
-|   |   |   tracking_service.py
+|   |   |   messagebus.py
 |   |   |   __init__.py
 |   +--- common
 |   |   |   datetime_utils.py
 |   |   |   logger.py
 |   |   |   __init__.py
 |   +--- domain
+|   |   |   events.py
 |   |   |   __init__.py
 |   |   +--- tracking
 |   |   |   |   commands.py
@@ -60,8 +61,9 @@ python
 |   |   |   +--- yolo
 |   |   +--- tracking
 |   |   |   |   body_detector.py
+|   |   |   |   face_body_matcher.py
 |   |   |   |   face_detector.py
+|   |   |   |   face_recognizer.py
 |   |   |   |   frame_collector.py
-|   |   |   |   matcher.py
 |   |   |   |   providers.py
 |   |   |   +--- models

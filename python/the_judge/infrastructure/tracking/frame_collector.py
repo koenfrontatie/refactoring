@@ -6,18 +6,20 @@ from concurrent.futures import ThreadPoolExecutor
 
 from the_judge.domain.tracking.model import Frame
 from the_judge.domain.tracking.ports import FrameCollectorPort
+from the_judge.domain.events import FrameIngested
+from the_judge.application.messagebus import MessageBus
 from the_judge.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from the_judge.common.logger import setup_logger
 from the_judge.settings import get_settings
 
 logger = setup_logger('FrameCollector')
 
-class FrameCollectorAdapter(FrameCollectorPort):
-    def __init__(self, tracking_service=None):
+class FrameCollector(FrameCollectorPort):
+    def __init__(self, bus: MessageBus):
         self._cameras: set[str] = set()
         self.cfg = get_settings()
         self.uow = SqlAlchemyUnitOfWork()
-        self.tracking_service = tracking_service
+        self.bus = bus
         self.executor = ThreadPoolExecutor(max_workers=2)
 
     async def register_camera(self, command):
@@ -63,8 +65,12 @@ class FrameCollectorAdapter(FrameCollectorPort):
         
         logger.info(f"Saved frame from {command.camera_name} to {filepath.absolute()} and database")
         
-        # Trigger processing
-        if self.tracking_service and frame_id:
-            asyncio.create_task(
-                self.tracking_service.process_frame(frame_id, str(filepath))
+        # Raise FrameIngested event instead of direct service call
+        if frame_id:
+            event = FrameIngested(
+                frame_id=frame_id,
+                camera_name=command.camera_name,
+                collection_id=command.collection_id,
+                ingested_at=datetime.now()
             )
+            self.bus.handle(event)

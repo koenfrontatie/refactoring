@@ -1,19 +1,24 @@
 from the_judge.entrypoints.socket_client import SocketIOClient
 from the_judge.infrastructure.db.engine import initialize_database
-from the_judge.infrastructure.tracking.frame_collector import FrameCollectorAdapter
-from the_judge.infrastructure.tracking.face_detector import InsightFaceAdapter
-from the_judge.infrastructure.tracking.body_detector import YoloBodyAdapter
-from the_judge.infrastructure.tracking.matcher import FaceBodyMatchingAdapter
-from the_judge.application.tracking_service import TrackingService
-from the_judge.application.face_recognition_service import FaceRecognitionService
+from the_judge.infrastructure.tracking.frame_collector import FrameCollector
+from the_judge.infrastructure.tracking.face_detector import FaceDetector
+from the_judge.infrastructure.tracking.body_detector import BodyDetector
+from the_judge.infrastructure.tracking.face_body_matcher import FaceBodyMatcher
+from the_judge.infrastructure.tracking.face_recognizer import FaceRecognizer
+from the_judge.application.processing_service import FrameProcessingService
+from the_judge.application.messagebus import MessageBus
+from the_judge.application.event_handlers import log_frame_ingested, log_frame_analyzed, update_statistics
+from the_judge.domain.events import FrameIngested, FrameAnalyzed
+from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
 from the_judge.settings import get_settings
 
 class Runtime:
 
-    def __init__(self, ws_client, frame_collector: FrameCollectorAdapter, frame_processing_service: TrackingService):
+    def __init__(self, ws_client, frame_collector: FrameCollector, frame_processing_service: FrameProcessingService, bus: MessageBus):
         self.ws_client = ws_client
         self.frame_collector = frame_collector
         self.frame_processing_service = frame_processing_service
+        self.bus = bus
 
     def shutdown(self):
         # Add any cleanup logic here if needed
@@ -27,25 +32,40 @@ def build_runtime() -> Runtime:
     
     # Pre-load ML models for better startup performance
     print("Loading ML models...")
-    from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
     InsightFaceProvider.get_instance()
     YOLOProvider.get_instance()
     print("ML models loaded successfully")
     
-    # Initialize detection adapters
-    face_detector = InsightFaceAdapter()
-    body_detector = YoloBodyAdapter()
-    face_body_matcher = FaceBodyMatchingAdapter()
+    # Create message bus
+    print("Setting up message bus...")
+    bus = MessageBus()
     
-    # Initialize services
-    tracking_service = TrackingService(
+    # Initialize infrastructure adapters
+    face_detector = FaceDetector()
+    body_detector = BodyDetector()
+    face_body_matcher = FaceBodyMatcher()
+    face_recognizer = FaceRecognizer()
+    
+    # Initialize processing service with dependency injection
+    processing_service = FrameProcessingService(
         face_detector=face_detector,
-        body_detector=body_detector, 
-        face_body_matcher=face_body_matcher
+        body_detector=body_detector,
+        face_body_matcher=face_body_matcher,
+        face_recognizer=face_recognizer,
+        bus=bus
     )
     
-    frame_collector = FrameCollectorAdapter(tracking_service)
-
+    # Wire up event handlers - processing service subscribes to FrameIngested
+    bus.subscribe(FrameIngested, processing_service.handle_frame_ingested)
+    
+    # Wire up logging event handlers  
+    bus.subscribe(FrameIngested, log_frame_ingested)
+    bus.subscribe(FrameAnalyzed, log_frame_analyzed)
+    bus.subscribe(FrameAnalyzed, update_statistics)
+    
+    # Initialize frame collector with message bus (no direct dependency on processing service)
+    frame_collector = FrameCollector(bus)
+    
     ws_client = SocketIOClient(frame_collector)
 
-    return Runtime(ws_client, frame_collector, tracking_service)
+    return Runtime(ws_client, frame_collector, processing_service, bus)

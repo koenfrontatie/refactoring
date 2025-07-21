@@ -3,20 +3,19 @@ import numpy as np
 from datetime import datetime
 from typing import List
 
-from the_judge.domain.tracking.ports import BodyDetectionPort
+from the_judge.domain.tracking.ports import BodyDetectorPort
 from the_judge.domain.tracking.model import Body
 from the_judge.infrastructure.tracking.providers import YOLOProvider
 from the_judge.common.logger import setup_logger
 
 logger = setup_logger('BodyDetector')
 
-class BodyDetectorAdapter(BodyDetectionPort):
+class BodyDetector(BodyDetectorPort):
     
     def __init__(self):
         self.model = YOLOProvider.get_instance()
     
     def detect_bodies(self, image: np.ndarray, frame_id: int) -> List[Body]:
-        """Detect body bounding boxes using original YOLO logic"""
         if self.model is None:
             logger.warning("YOLO model not available, returning empty body list")
             return []

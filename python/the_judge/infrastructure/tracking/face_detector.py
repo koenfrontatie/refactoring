@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List
 import cv2
 
-from the_judge.domain.tracking.ports import FaceDetectionPort
+from the_judge.domain.tracking.ports import FaceDetectorPort
 from the_judge.domain.tracking.model import Face
 from the_judge.infrastructure.tracking.providers import InsightFaceProvider
 from the_judge.settings import get_settings
@@ -12,7 +12,7 @@ from the_judge.common.logger import setup_logger
 
 logger = setup_logger('FaceDetector')
 
-class InsightFaceAdapter(FaceDetectionPort):
+class FaceDetector(FaceDetectorPort):
     
     def __init__(self):
         self.cfg = get_settings()

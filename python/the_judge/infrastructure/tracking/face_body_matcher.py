@@ -2,13 +2,13 @@ import numpy as np
 from typing import List, Dict
 from scipy.optimize import linear_sum_assignment
 
-from the_judge.domain.tracking.ports import FaceBodyMatchingPort
+from the_judge.domain.tracking.ports import FaceBodyMatcherPort
 from the_judge.domain.tracking.model import Face, Body
 from the_judge.common.logger import setup_logger
 
-logger = setup_logger('BodyFaceMatcher')
+logger = setup_logger('FaceBodyMatcher')
 
-class FaceBodyMatchingAdapter(FaceBodyMatchingPort):
+class FaceBodyMatcher(FaceBodyMatcherPort):
     
     def match_faces_to_bodies(self, faces: List[Face], bodies: List[Body]) -> Dict[int, int]:
         if not faces or not bodies:
