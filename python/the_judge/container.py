@@ -3,7 +3,7 @@ from the_judge.infrastructure.db.engine import initialize_database
 from the_judge.infrastructure.tracking.frame_collector import FrameCollectorAdapter
 from the_judge.infrastructure.tracking.face_detector import InsightFaceAdapter
 from the_judge.infrastructure.tracking.body_detector import YoloBodyAdapter
-from the_judge.infrastructure.tracking.matcher import GeometricMatcherAdapter
+from the_judge.infrastructure.tracking.matcher import FaceBodyMatchingAdapter
 from the_judge.application.tracking_service import TrackingService
 from the_judge.application.face_recognition_service import FaceRecognitionService
 from the_judge.settings import get_settings
@@ -35,7 +35,7 @@ def build_runtime() -> Runtime:
     # Initialize detection adapters
     face_detector = InsightFaceAdapter()
     body_detector = YoloBodyAdapter()
-    face_body_matcher = GeometricMatcherAdapter()
+    face_body_matcher = FaceBodyMatchingAdapter()
     
     # Initialize services
     tracking_service = TrackingService(

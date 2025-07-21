@@ -8,10 +8,9 @@ from the_judge.common.logger import setup_logger
 
 logger = setup_logger('BodyFaceMatcher')
 
-class GeometricMatcherAdapter(FaceBodyMatchingPort):
+class FaceBodyMatchingAdapter(FaceBodyMatchingPort):
     
     def match_faces_to_bodies(self, faces: List[Face], bodies: List[Body]) -> Dict[int, int]:
-        """Match faces to bodies using original algorithm from reference repo"""
         if not faces or not bodies:
             return {}
         
