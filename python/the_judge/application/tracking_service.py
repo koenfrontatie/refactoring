@@ -11,7 +11,7 @@ class FrameProcessingService:
     def __init__(self):
         pass
     
-    async def process_frame_complete(self, frame_id: int, uow: AbstractUnitOfWork):
+    async def process_frame(self, frame_id: int, uow: AbstractUnitOfWork):
         with uow:
             frame = uow.tracking.get_frame(frame_id)
             if not frame:

@@ -4,8 +4,8 @@ venv/
 # Python compiled files
 __pycache__/
 
-# ML Models directory - ignore everything in models
 /infrastructure/models/
+/storage/
 
 # YOLOv8 model in root
 /yolov8m.pt
