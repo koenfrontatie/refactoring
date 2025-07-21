@@ -1,3 +1,3 @@
-from .services.camera_service import CameraService
+from .face_recognition_service import FaceRecognitionService
 
-__all__ = ['CameraService']
+__all__ = ['FaceRecognitionService']

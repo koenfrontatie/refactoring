@@ -1,4 +1,4 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 20-07-25 17:49:15.70
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 21-07-25 13:38:55.16
 ============================================================
 python
 |   .env
@@ -18,6 +18,8 @@ python
 |   |   settings.py
 |   |   __init__.py
 |   +--- application
+|   |   |   face_recognition_service.py
+|   |   |   tracking_service.py
 |   |   |   __init__.py
 |   +--- common
 |   |   |   datetime_utils.py
@@ -53,9 +55,13 @@ python
 |   |   |   |   |   __init__.py
 |   |   |   +--- repositories
 |   |   |   |   |   tracking_repo.py
+|   |   +--- models
+|   |   |   +--- insightface
+|   |   |   +--- yolo
 |   |   +--- tracking
-|   |   |   |   detector.py
-|   |   |   |   face_embedder.py
+|   |   |   |   body_detector.py
+|   |   |   |   face_detector.py
 |   |   |   |   frame_collector.py
 |   |   |   |   matcher.py
+|   |   |   |   providers.py
 |   |   |   +--- models

@@ -13,6 +13,11 @@ class Settings(BaseModel):
     # Camera settings
     capture_interval: float = Field(default=10.0, env="CAPTURE_INTERVAL")
     
+    # Detection settings
+    face_detection_threshold: float = Field(default=0.6, env="FACE_DETECTION_THRESHOLD")
+    face_recognition_threshold: float = Field(default=0.4, env="FACE_RECOGNITION_THRESHOLD")
+    model_path: Path = Field(default=Path("infrastructure/models"), env="MODEL_PATH")
+    
     # Storage paths
     storage_dir: Path = Field(default=Path("storage"), env="STORAGE_DIR")
     stream_dir: Path = Field(default=Path("storage/stream"), env="STREAM_DIR")
