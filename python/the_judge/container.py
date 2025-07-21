@@ -7,7 +7,6 @@ from the_judge.infrastructure.tracking.face_body_matcher import FaceBodyMatcher
 from the_judge.infrastructure.tracking.face_recognizer import FaceRecognizer
 from the_judge.application.processing_service import FrameProcessingService
 from the_judge.application.messagebus import MessageBus
-from the_judge.application.event_handlers import log_frame_ingested, log_frame_analyzed, update_statistics
 from the_judge.domain.events import FrameIngested, FrameAnalyzed
 from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
 from the_judge.settings import get_settings
@@ -55,15 +54,8 @@ def build_runtime() -> Runtime:
         bus=bus
     )
     
-    # Wire up event handlers - processing service subscribes to FrameIngested
     bus.subscribe(FrameIngested, processing_service.handle_frame_ingested)
     
-    # Wire up logging event handlers  
-    bus.subscribe(FrameIngested, log_frame_ingested)
-    bus.subscribe(FrameAnalyzed, log_frame_analyzed)
-    bus.subscribe(FrameAnalyzed, update_statistics)
-    
-    # Initialize frame collector with message bus (no direct dependency on processing service)
     frame_collector = FrameCollector(bus)
     
     ws_client = SocketIOClient(frame_collector)

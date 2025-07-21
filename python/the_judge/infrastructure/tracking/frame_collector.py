@@ -59,7 +59,7 @@ class FrameCollector(FrameCollectorPort):
                 uuid=str(uuid.uuid4()),
                 collection_id=command.collection_id
             )
-            uow.tracking.add_frame(frame)
+            uow.repository.add(frame)
             uow.commit()
             frame_id = frame.id
         

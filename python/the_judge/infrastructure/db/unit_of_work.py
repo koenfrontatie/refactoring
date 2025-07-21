@@ -1,42 +1,24 @@
 # infrastructure/db/unit_of_work.py
-import abc
-from sqlalchemy import create_engine
+from typing import Type
 from sqlalchemy.orm import sessionmaker, Session
-
-from the_judge.infrastructure.db.repositories.tracking_repo import AbstractTrackingRepository, SqlAlchemyTrackingRepository
-
-
-class AbstractUnitOfWork(abc.ABC):
-    
-    tracking: AbstractTrackingRepository
-    
-    def __enter__(self) -> "AbstractUnitOfWork":
-        return self
-    
-    def __exit__(self, *args):
-        self.rollback()
-    
-    @abc.abstractmethod
-    def commit(self):
-        raise NotImplementedError
-    
-    @abc.abstractmethod
-    def rollback(self):
-        raise NotImplementedError
+from the_judge.application.unit_of_work import AbstractUnitOfWork
+from the_judge.domain.tracking.repository import AbstractRepository
+from the_judge.infrastructure.db.repository import SqlAlchemyRepository
 
 
 class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
     
-    def __init__(self, session_factory: sessionmaker = None):
+    def __init__(self, session_factory: sessionmaker = None, repository_class: Type[AbstractRepository] = SqlAlchemyRepository):
         if session_factory is None:
             from .engine import get_session_factory
             self.session_factory = get_session_factory()
         else:
             self.session_factory = session_factory
+        self.repository_class = repository_class
     
     def __enter__(self):
         self.session: Session = self.session_factory()
-        self.tracking = SqlAlchemyTrackingRepository(self.session)
+        self.repository = self.repository_class(self.session)
         return super().__enter__()
     
     def __exit__(self, *args):
