@@ -3,7 +3,7 @@ import numpy as np
 
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.domain.tracking.model import Face
-from the_judge.infrastructure.db.unit_of_work import UnitOfWork
+from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork, SqlAlchemyUnitOfWork
 from the_judge.settings import get_settings
 from the_judge.common.logger import setup_logger
 
@@ -45,7 +45,7 @@ class FaceRecognizer(FaceRecognizerPort):
         
         return recognition_results
     
-    def _get_gallery_faces(self, uow: UnitOfWork) -> List[Face]:
+    def _get_gallery_faces(self, uow: AbstractUnitOfWork) -> List[Face]:
         from sqlalchemy import desc
         
         with uow:

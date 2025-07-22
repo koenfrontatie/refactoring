@@ -1,5 +1,6 @@
 from the_judge.entrypoints.socket_client import SocketIOClient
 from the_judge.infrastructure.db.engine import initialize_database
+from the_judge.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from the_judge.infrastructure.tracking.frame_collector import FrameCollector
 from the_judge.infrastructure.tracking.face_detector import FaceDetector
 from the_judge.infrastructure.tracking.body_detector import BodyDetector
@@ -41,6 +42,8 @@ def build_runtime() -> Runtime:
     print("Setting up message bus...")
     bus = MessageBus()
     
+    uow_factory = SqlAlchemyUnitOfWork              
+
     # Initialize infrastructure adapters
     face_detector = FaceDetector()
     body_detector = BodyDetector()
@@ -53,13 +56,14 @@ def build_runtime() -> Runtime:
         body_detector=body_detector,
         face_body_matcher=face_body_matcher,
         face_recognizer=face_recognizer,
-        bus=bus
+        bus=bus,
+        uow_factory=uow_factory
     )
     
     bus.subscribe(FrameIngested, processing_service.handle_frame_ingested)
-    
-    frame_collector = FrameCollector(bus)
-    
+
+    frame_collector = FrameCollector(bus, uow_factory=uow_factory)
+
     ws_client = SocketIOClient(frame_collector)
 
     return Runtime(ws_client, frame_collector, processing_service, bus)
