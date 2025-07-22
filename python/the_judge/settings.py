@@ -40,14 +40,4 @@ def get_settings() -> Settings:
     global _settings
     if _settings is None:
         _settings = Settings()
-        
-        # Create storage directories
-        _settings.storage_dir.mkdir(parents=True, exist_ok=True)
-        _settings.stream_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Create database directory if using SQLite
-        if _settings.database_url.startswith('sqlite'):
-            db_path = _settings.database_url.replace('sqlite:///', '')
-            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        
     return _settings
