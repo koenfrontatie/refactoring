@@ -15,12 +15,17 @@ from the_judge.settings import get_settings
 logger = setup_logger("FrameCollector")
 
 class FrameCollector(FrameCollectorPort):
-    def __init__(self, bus: MessageBus, uow_factory: Callable[[], AbstractUnitOfWork]):
+    def __init__(
+        self, 
+        bus: MessageBus, 
+        uow_factory: Callable[[], AbstractUnitOfWork],
+        max_workers: int = 2
+    ):
         self._cameras: set[str] = set()
         self.cfg = get_settings()
         self.uow_factory = uow_factory
         self.bus = bus
-        self.executor = ThreadPoolExecutor(max_workers=2)
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
     async def register_camera(self, command):
         self._cameras.add(command.camera_name)

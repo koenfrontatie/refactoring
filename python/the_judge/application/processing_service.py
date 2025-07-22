@@ -7,16 +7,15 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, List
 from pathlib import Path
 
-from the_judge.domain.tracking.ports import (
-    FaceDetectorPort,
-    BodyDetectorPort,
-    FaceBodyMatcherPort,
-    FaceRecognizerPort,
-)
 from the_judge.domain.tracking.model import Detection
 from the_judge.domain.events import FrameAnalyzed, FrameIngested
 from the_judge.application.messagebus import MessageBus
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
+from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
+from the_judge.infrastructure.tracking.face_detector import FaceDetector
+from the_judge.infrastructure.tracking.body_detector import BodyDetector
+from the_judge.infrastructure.tracking.face_body_matcher import FaceBodyMatcher
+from the_judge.infrastructure.tracking.face_recognizer import FaceRecognizer
 from the_judge.settings import get_settings
 from the_judge.common.logger import setup_logger
 
@@ -26,18 +25,31 @@ logger = setup_logger("FrameProcessingService")
 class FrameProcessingService:
     def __init__(
         self,
-        face_detector: FaceDetectorPort,
-        body_detector: BodyDetectorPort,
-        face_body_matcher: FaceBodyMatcherPort,
-        face_recognizer: FaceRecognizerPort,
+        face_provider: InsightFaceProvider,
+        body_provider: YOLOProvider,
         bus: MessageBus,
         uow_factory: Callable[[], AbstractUnitOfWork],
         max_workers: int = 4,
     ):
-        self.face_detector = face_detector
-        self.body_detector = body_detector
-        self.face_body_matcher = face_body_matcher
-        self.face_recognizer = face_recognizer
+        # Service creates its own adapters with hardcoded config
+        self.face_detector = FaceDetector(
+            insight_provider=face_provider,
+            det_thresh=0.5,
+            min_area=2500,
+            min_norm=15.0,
+            max_yaw=45.0,
+            max_pitch=30.0,
+        )
+        
+        self.body_detector = BodyDetector(body_provider)
+        self.face_body_matcher = FaceBodyMatcher()
+        
+        self.face_recognizer = FaceRecognizer(
+            uow_factory=uow_factory,
+            provider=face_provider,
+            threshold=get_settings().face_recognition_threshold,
+        )
+        
         self.bus = bus
         self.uow_factory = uow_factory
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -75,7 +87,7 @@ class FrameProcessingService:
                 logger.info("No faces detected in frame %s", frame_id)
                 return
 
-            '''detections = self._build_detections(frame_id, faces, bodies)
+            detections = self._build_detections(frame_id, faces, bodies)
             self._persist_detections(detections)
 
             logger.info(
@@ -84,7 +96,7 @@ class FrameProcessingService:
                 len(faces),
                 len(bodies),
                 len(detections),
-            )'''
+            )
         except Exception as exc:
             logger.exception("Error processing frame %s: %s", frame_id, exc)
 
