@@ -18,7 +18,7 @@ class FaceDetector(FaceDetectorPort):
         self.cfg = get_settings()
         self.face_app = InsightFaceProvider.get_instance()
     
-    def detect_faces(self, image: np.ndarray, frame_id: int) -> List[Face]:
+    def detect_faces(self, image: np.ndarray, frame_id: str) -> List[Face]:
         """Detect faces in image and return Face objects with embeddings"""
         if self.face_app is None:
             logger.warning("InsightFace not available, returning empty face list")
@@ -41,6 +41,7 @@ class FaceDetector(FaceDetectorPort):
                 quality_score = self._calculate_quality(i_face)
                 
                 face = Face(
+                    id=str(uuid.uuid4()),
                     frame_id=frame_id,
                     bbox=rect,
                     embedding=i_face.embedding,
@@ -51,12 +52,11 @@ class FaceDetector(FaceDetectorPort):
                     pose=self._get_pose_string(i_face),
                     age=int(getattr(i_face, 'age', 0)) if hasattr(i_face, 'age') else None,
                     sex=self._get_sex_string(i_face),
-                    captured_at=datetime.now(),
-                    uuid=str(uuid.uuid4())
+                    captured_at=datetime.now()
                 )
                 faces.append(face)
             
-            logger.info(f"Returning {len(faces)} quality faces for frame {frame_id}")
+            logger.info(f"Returning {len(faces)} quality faces for frame_id {frame_id}")
             return faces
             
         except Exception as e:

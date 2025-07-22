@@ -10,7 +10,7 @@ logger = setup_logger('FaceBodyMatcher')
 
 class FaceBodyMatcher(FaceBodyMatcherPort):
     
-    def match_faces_to_bodies(self, faces: List[Face], bodies: List[Body]) -> Dict[int, int]:
+    def match_faces_to_bodies(self, faces: List[Face], bodies: List[Body]) -> Dict[str, str]:
         if not faces or not bodies:
             return {}
         

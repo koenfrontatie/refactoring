@@ -25,11 +25,13 @@ class Runtime:
 
 
 def build_runtime() -> Runtime:
-    # Initialize database on startup
     print("Initializing database...")
     initialize_database()
     
-    # Pre-load ML models for better startup performance
+    print("Starting ORM mappers...")
+    from the_judge.infrastructure.db.orm import start_mappers
+    start_mappers()
+    
     print("Loading ML models...")
     InsightFaceProvider.get_instance()
     YOLOProvider.get_instance()

@@ -8,7 +8,7 @@ from the_judge.domain.tracking.model import Frame
 from the_judge.domain.tracking.ports import FrameCollectorPort
 from the_judge.domain.events import FrameIngested
 from the_judge.application.messagebus import MessageBus
-from the_judge.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
+from the_judge.infrastructure.db.unit_of_work import UnitOfWork
 from the_judge.common.logger import setup_logger
 from the_judge.settings import get_settings
 
@@ -18,7 +18,7 @@ class FrameCollector(FrameCollectorPort):
     def __init__(self, bus: MessageBus):
         self._cameras: set[str] = set()
         self.cfg = get_settings()
-        self.uow = SqlAlchemyUnitOfWork()
+        self.uow = UnitOfWork()
         self.bus = bus
         self.executor = ThreadPoolExecutor(max_workers=2)
 
@@ -54,21 +54,21 @@ class FrameCollector(FrameCollectorPort):
         frame_id = None
         with self.uow as uow:
             frame = Frame(
+                id=str(uuid.uuid4()),
                 camera_name=command.camera_name,
                 captured_at=datetime.now(),
-                uuid=str(uuid.uuid4()),
                 collection_id=command.collection_id
             )
-            uow.repository.add(frame)
+            saved_frame = uow.repository.add(frame)
             uow.commit()
-            frame_id = frame.id
+            frame = saved_frame
         
         logger.info(f"Saved frame from {command.camera_name} to {filepath.absolute()} and database")
         
         # Raise FrameIngested event instead of direct service call
-        if frame_id:
+        if frame:
             event = FrameIngested(
-                frame_id=frame_id,
+                frame_id=frame.id,
                 camera_name=command.camera_name,
                 collection_id=command.collection_id,
                 ingested_at=datetime.now()

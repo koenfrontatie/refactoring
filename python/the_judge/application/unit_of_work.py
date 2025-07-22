@@ -1,6 +1,6 @@
 # application/unit_of_work.py
 from abc import ABC, abstractmethod
-from the_judge.domain.tracking.repository import AbstractRepository
+from the_judge.domain.tracking.ports import AbstractRepository
 
 
 class AbstractUnitOfWork(ABC):

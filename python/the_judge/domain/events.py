@@ -7,14 +7,14 @@ class Event(ABC):
 
 @dataclass
 class FrameIngested(Event):
-    frame_id: int
+    frame_id: str
     camera_name: str
     collection_id: str
     ingested_at: datetime
 
 @dataclass
 class FrameAnalyzed(Event):
-    frame_id: int
+    frame_id: str
     faces_detected: int
     bodies_detected: int
     analyzed_at: datetime

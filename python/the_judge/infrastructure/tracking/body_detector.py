@@ -15,7 +15,7 @@ class BodyDetector(BodyDetectorPort):
     def __init__(self):
         self.model = YOLOProvider.get_instance()
     
-    def detect_bodies(self, image: np.ndarray, frame_id: int) -> List[Body]:
+    def detect_bodies(self, image: np.ndarray, frame_id: str) -> List[Body]:
         if self.model is None:
             logger.warning("YOLO model not available, returning empty body list")
             return []
@@ -32,14 +32,14 @@ class BodyDetector(BodyDetectorPort):
                     rect = (int(x1), int(y1), int(x2), int(y2))
                     
                     body = Body(
+                        id=str(uuid.uuid4()),
                         frame_id=frame_id,
                         bbox=rect,
-                        captured_at=datetime.now(),
-                        uuid=str(uuid.uuid4())
+                        captured_at=datetime.now()
                     )
                     bodies.append(body)
             
-            logger.info(f"Detected {len(bodies)} bodies in frame {frame_id}")
+            logger.info(f"Detected {len(bodies)} bodies in frame_id {frame_id}")
             return bodies
             
         except Exception as e:

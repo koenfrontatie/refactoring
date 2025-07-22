@@ -1,84 +1,78 @@
-from dataclasses import dataclass, field, asdict
+from __future__ import annotations  
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 import numpy as np
 
-@dataclass
+@dataclass(frozen=True)
 class Frame:
-    id: Optional[int] = field(default=None)
-    camera_name: str = field()
-    captured_at: datetime = field()
-    collection_id: Optional[int] = field(default=None)
-    uuid: str = field()
+    id: str
+    camera_name: str
+    captured_at: datetime
+    collection_id: Optional[str]
 
-@dataclass
+@dataclass(frozen=True)
 class Face:
-    id: Optional[int] = field(default=None)
-    frame_id: int = field()
-    bbox: tuple = field()
-    embedding: np.ndarray = field()
-    normed_embedding: np.ndarray = field()
-    embedding_norm: float = field()
-    det_score: float = field()
-    quality_score: Optional[float] = field(default=None)
-    pose: Optional[str] = field(default=None)
-    age: Optional[int] = field(default=None)
-    sex: Optional[str] = field(default=None)
-    captured_at: datetime = field()
-    uuid: str = field()
+    id: str
+    frame_id: str
+    bbox: tuple[int, int, int, int]
+    embedding: np.ndarray
+    normed_embedding: np.ndarray
+    embedding_norm: float
+    det_score: float
+    quality_score: float
+    pose: str
+    age: int
+    sex: str
+    captured_at: datetime
 
-@dataclass
+@dataclass(frozen=True)
 class Body:
-    id: Optional[int] = field(default=None)
-    frame_id: int = field()
-    bbox: tuple = field()
-    captured_at: datetime = field()
-    uuid: str = field()
+    id: str
+    frame_id: str
+    bbox: tuple[int, int, int, int]
+    captured_at: datetime
 
-@dataclass
+@dataclass(frozen=True)
 class Detection:
-    id: Optional[int] = field(default=None)
-    frame_id: int = field()
-    face_id: Optional[int] = field(default=None)
-    body_id: Optional[int] = field(default=None)
-    visitor_record: dict = field()
-    captured_at: datetime = field()
-    uuid: str = field()
+    id: str
+    frame_id: str
+    face_id: Optional[str]
+    body_id: Optional[str]
+    visitor_record: dict
+    captured_at: datetime
 
-@dataclass
+@dataclass(frozen=True)
 class Collection:
-    id: Optional[int] = field(default=None)
-    created_at: datetime = field()
-    uuid: str = field()
+    id: str
+    created_at: datetime
 
 @dataclass
 class Camera:
-    id: Optional[int] = field(default=None)
-    name: str = field()
-    state: str = field()
-    captured_at: datetime = field()
-    created_at: datetime = field()
-    uuid: str = field()
+    id: str
+    name: str          
+    state: str
+    captured_at: datetime
+    created_at: datetime
 
 @dataclass
 class Visitor:
-    id: Optional[int] = field(default=None)
-    name: str = field()
-    state: str = field()
-    face_id: int = field()
-    body_id: int = field()
-    captured_at: datetime = field()
-    created_at: datetime = field()
-    uuid: str = field()
+    id: str
+    name: str
+    state: str
+    face_id: str
+    body_id: str
+    captured_at: datetime
+    created_at: datetime
 
     def record(self) -> dict:
-        return dict(
-            id=self.id,
-            name=self.name,
-            state=self.state,
-            face_id=self.face_id,
-            body_id=self.body_id,
-            captured_at=self.captured_at,
-            created_at=self.created_at,
-            uuid=self.uuid
-        )
+        return {
+            'id': self.id,
+            'name': self.name,
+            'state': self.state,
+            'face_id': self.face_id,
+            'body_id': self.body_id,
+            'captured_at': self.captured_at,
+            'created_at': self.created_at
+        }
+

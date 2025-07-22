@@ -1,4 +1,4 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 21-07-25 15:44:10.84
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 22-07-25 10:37:36.86
 ============================================================
 python
 |   .env
@@ -7,7 +7,6 @@ python
 |   refactoring.code-workspace
 |   requirements.txt
 |   startvenv.bat
-|   temp_frame_processing_service.py
 +--- scripts
 |   |   socket_test_gui.py
 |   |   start_gui.bat
@@ -20,6 +19,8 @@ python
 |   |   __init__.py
 |   +--- application
 |   |   |   messagebus.py
+|   |   |   processing_service.py
+|   |   |   unit_of_work.py
 |   |   |   __init__.py
 |   +--- common
 |   |   |   datetime_utils.py
@@ -32,6 +33,7 @@ python
 |   |   |   |   commands.py
 |   |   |   |   model.py
 |   |   |   |   ports.py
+|   |   |   |   repository.py
 |   |   |   |   __init__.py
 |   +--- entrypoints
 |   |   |   handlers.py
@@ -51,11 +53,6 @@ python
 |   |   |   |   repository.py
 |   |   |   |   unit_of_work.py
 |   |   |   |   __init__.py
-|   |   |   +--- models
-|   |   |   |   |   tracking_models.py
-|   |   |   |   |   __init__.py
-|   |   |   +--- repositories
-|   |   |   |   |   tracking_repo.py
 |   |   +--- models
 |   |   |   +--- insightface
 |   |   |   +--- yolo

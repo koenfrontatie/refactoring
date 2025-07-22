@@ -1,32 +1,48 @@
-# infrastructure/db/unit_of_work.py
-from typing import Type
-from sqlalchemy.orm import sessionmaker, Session
-from the_judge.application.unit_of_work import AbstractUnitOfWork
-from the_judge.domain.tracking.repository import AbstractRepository
-from the_judge.infrastructure.db.repository import SqlAlchemyRepository
+from __future__ import annotations
+from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager
+
+from sqlalchemy.orm import Session
+from the_judge.infrastructure.db.repository import TrackingRepository
+from the_judge.infrastructure.db.engine import get_session_factory
+from the_judge.domain.tracking.ports import AbstractRepository   
+
+
+class AbstractUnitOfWork(ABC, AbstractContextManager):
+    repository: AbstractRepository
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        if exc_type:
+            self.rollback()      
+        else:
+            self.commit()        
+        self._session.close()
+        return False             
+
+    def commit(self) -> None:
+        self._commit()
+
+    def rollback(self) -> None:
+        self._rollback()
+
+    @abstractmethod
+    def _commit(self) -> None: ...
+    @abstractmethod
+    def _rollback(self) -> None: ...
 
 
 class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
-    
-    def __init__(self, session_factory: sessionmaker = None, repository_class: Type[AbstractRepository] = SqlAlchemyRepository):
-        if session_factory is None:
-            from .engine import get_session_factory
-            self.session_factory = get_session_factory()
-        else:
-            self.session_factory = session_factory
-        self.repository_class = repository_class
-    
-    def __enter__(self):
-        self.session: Session = self.session_factory()
-        self.repository = self.repository_class(self.session)
-        return super().__enter__()
-    
-    def __exit__(self, *args):
-        super().__exit__(*args)
-        self.session.close()
-    
-    def commit(self):
-        self.session.commit()
-    
-    def rollback(self):
-        self.session.rollback()
+
+    def __init__(self, session_factory=None):
+        self._session_factory = session_factory or get_session_factory()
+
+    def __enter__(self) -> "SqlAlchemyUnitOfWork":
+        self._session: Session = self._session_factory()
+        self.repository = TrackingRepository(self._session)   
+        return self
+
+    def _commit(self) -> None:
+        self._session.commit()
+
+    def _rollback(self) -> None:
+        self._session.rollback()

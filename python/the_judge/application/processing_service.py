@@ -15,7 +15,7 @@ from the_judge.domain.tracking.ports import (
 from the_judge.domain.tracking.model import Detection
 from the_judge.domain.events import FrameAnalyzed, FrameIngested
 from the_judge.application.messagebus import MessageBus
-from the_judge.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
+from the_judge.infrastructure.db.unit_of_work import UnitOfWork
 from the_judge.settings import get_settings
 from the_judge.common.logger import setup_logger
 
@@ -39,18 +39,15 @@ class FrameProcessingService:
         self.executor = ThreadPoolExecutor(max_workers=2)
     
     def handle_frame_ingested(self, event: FrameIngested):
-        """Event handler for FrameIngested events"""
-        # Get the image path from the frame info - reconstruct the path
         from pathlib import Path
         collection_dir = Path(get_settings().get_stream_path(event.collection_id))
         image_path = str(collection_dir / f"{event.camera_name}.jpg")
         
-        # Start async processing
         asyncio.create_task(
             self.process_frame(event.frame_id, image_path)
         )
     
-    async def process_frame(self, frame_id: int, image_path: str):
+    async def process_frame(self, frame_id: str, image_path: str):
         try:
             image = await self._load_image(image_path)
             if image is None:
@@ -67,20 +64,19 @@ class FrameProcessingService:
         except Exception as e:
             logger.error(f"Error processing frame {frame_id}: {e}")
     
-    def _process_frame_complete(self, frame_id: int, image: np.ndarray):
+    def _process_frame_complete(self, frame_id: str, image: np.ndarray):
         try:
-            uow = SqlAlchemyUnitOfWork()
+            uow = UnitOfWork()
             
             # Step 1: Detect faces and bodies via ports
             faces = self.face_detector.detect_faces(image, frame_id)
             bodies = self.body_detector.detect_bodies(image, frame_id)
             
-            # Step 2: Save detected objects to database
             with uow:
                 for face in faces:
-                    uow.tracking.add_face(face)
+                    saved_face = uow.repository.add(face)
                 for body in bodies:
-                    uow.tracking.add_body(body)
+                    saved_body = uow.repository.add(body)
                 uow.commit()
             
             # Raise frame analyzed event
@@ -108,7 +104,7 @@ class FrameProcessingService:
             # Step 6: Save detections to database
             with uow:
                 for detection in detections:
-                    uow.tracking.add_detection(detection)
+                    uow.repository.add(detection)
                 uow.commit()
             
             logger.info(f"Frame {frame_id}: {len(faces)} faces, {len(bodies)} bodies, {len(detections)} detections")
@@ -127,7 +123,7 @@ class FrameProcessingService:
             self.executor, load_sync
         )
     
-    def _create_detections(self, frame_id: int, face_body_matches: dict, recognition_results: dict) -> list:
+    def _create_detections(self, frame_id: str, face_body_matches: dict, recognition_results: dict) -> list:
         detections = []
         current_time = datetime.now()
         
@@ -137,12 +133,12 @@ class FrameProcessingService:
             visitor_record = recognition_data or {}
             
             detection = Detection(
+                id=str(uuid.uuid4()),
                 frame_id=frame_id,
                 face_id=face_id,
                 body_id=body_id,
                 visitor_record=visitor_record,
-                captured_at=current_time,
-                uuid=str(uuid.uuid4())
+                captured_at=current_time
             )
             detections.append(detection)
         

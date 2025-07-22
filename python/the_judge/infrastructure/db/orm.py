@@ -1,76 +1,72 @@
-# infrastructure/db/orm.py
-from sqlalchemy import (
-    Table, Column, Integer, String, DateTime, Float, 
-    ForeignKey, MetaData, PickleType, JSON
-)
+from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, LargeBinary, Float, JSON
 from sqlalchemy.orm import registry
-
-from the_judge.domain.tracking import model
+from the_judge.domain.tracking.model import Frame, Face, Body, Detection, Visitor
+import uuid
 
 metadata = MetaData()
 mapper_registry = registry()
 
-collections = Table(
-    'collections',
-    metadata,
-    Column('id', Integer, primary_key=True, autoincrement=True),
-    Column('created_at', DateTime, nullable=False),
-    Column('uuid', String(36), nullable=False, unique=True),
-)
-
 frames = Table(
-    'frames',
-    metadata,
-    Column('id', Integer, primary_key=True, autoincrement=True),
-    Column('camera_name', String(255), nullable=False),
-    Column('collection_id', Integer, ForeignKey('collections.id'), nullable=True),
+    'frames', metadata,
+    Column('pk', Integer, primary_key=True),
+    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('camera_name', String(100), nullable=False),
     Column('captured_at', DateTime, nullable=False),
-    Column('uuid', String(36), nullable=False, unique=True),
+    Column('collection_id', String(50))
 )
 
 faces = Table(
-    'faces',
-    metadata,
-    Column('id', Integer, primary_key=True, autoincrement=True),
-    Column('frame_id', Integer, ForeignKey('frames.id'), nullable=False),
-    Column('bbox', JSON, nullable=False),
-    Column('embedding', PickleType, nullable=False),
-    Column('normed_embedding', PickleType, nullable=False),
-    Column('embedding_norm', Float, nullable=False),
-    Column('det_score', Float, nullable=False),
-    Column('quality_score', Float, nullable=True),
-    Column('pose', String(100), nullable=True),
-    Column('age', Integer, nullable=True),
-    Column('sex', String(10), nullable=True),
-    Column('captured_at', DateTime, nullable=False),
-    Column('uuid', String(36), nullable=False, unique=True),
+    'faces', metadata,
+    Column('pk', Integer, primary_key=True),
+    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('frame_id', String(36), nullable=False, index=True),
+    Column('bbox', JSON),
+    Column('embedding', LargeBinary),
+    Column('normed_embedding', LargeBinary),
+    Column('embedding_norm', Float),
+    Column('det_score', Float),
+    Column('quality_score', Float),
+    Column('pose', String(50)),
+    Column('age', Integer),
+    Column('sex', String(1)),
+    Column('captured_at', DateTime)
 )
 
 bodies = Table(
-    'bodies',
-    metadata,
-    Column('id', Integer, primary_key=True, autoincrement=True),
-    Column('frame_id', Integer, ForeignKey('frames.id'), nullable=False),
-    Column('bbox', JSON, nullable=False),
-    Column('captured_at', DateTime, nullable=False),
-    Column('uuid', String(36), nullable=False, unique=True),
+    'bodies', metadata,
+    Column('pk', Integer, primary_key=True),
+    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('frame_id', String(36), nullable=False, index=True),
+    Column('bbox', JSON),
+    Column('captured_at', DateTime)
 )
 
 detections = Table(
-    'detections',
-    metadata,
-    Column('id', Integer, primary_key=True, autoincrement=True),
-    Column('frame_id', Integer, ForeignKey('frames.id'), nullable=False),
-    Column('face_id', Integer, ForeignKey('faces.id'), nullable=True),
-    Column('body_id', Integer, ForeignKey('bodies.id'), nullable=True),
-    Column('visitor_record', PickleType, nullable=False),
-    Column('captured_at', DateTime, nullable=False),
-    Column('uuid', String(36), nullable=False, unique=True),
+    'detections', metadata,
+    Column('pk', Integer, primary_key=True),
+    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('frame_id', String(36), nullable=False, index=True),
+    Column('face_id', String(36), index=True),
+    Column('body_id', String(36), index=True),
+    Column('visitor_record', JSON),
+    Column('captured_at', DateTime)
+)
+
+visitors = Table(
+    'visitors', metadata,
+    Column('pk', Integer, primary_key=True),
+    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('name', String(100)),
+    Column('state', String(50)),
+    Column('face_id', String(36), index=True),
+    Column('body_id', String(36), index=True),
+    Column('captured_at', DateTime),
+    Column('created_at', DateTime)
 )
 
 def start_mappers():
-    mapper_registry.map_imperatively(model.Collection, collections)
-    mapper_registry.map_imperatively(model.Frame, frames)
-    mapper_registry.map_imperatively(model.Face, faces)
-    mapper_registry.map_imperatively(model.Body, bodies)
-    mapper_registry.map_imperatively(model.Detection, detections)
+    mapper_registry.map_imperatively(Frame, frames)
+    mapper_registry.map_imperatively(Face, faces)
+    mapper_registry.map_imperatively(Body, bodies)
+    mapper_registry.map_imperatively(Detection, detections)
+    mapper_registry.map_imperatively(Visitor, visitors)

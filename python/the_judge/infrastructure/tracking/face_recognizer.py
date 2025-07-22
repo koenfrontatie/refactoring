@@ -3,7 +3,7 @@ import numpy as np
 
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.domain.tracking.model import Face
-from the_judge.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
+from the_judge.infrastructure.db.unit_of_work import UnitOfWork
 from the_judge.settings import get_settings
 from the_judge.common.logger import setup_logger
 
@@ -14,7 +14,7 @@ class FaceRecognizer(FaceRecognizerPort):
     def __init__(self):
         self.cfg = get_settings()
     
-    def recognize_faces(self, faces: List[Face]) -> Dict[int, Optional[dict]]:
+    def recognize_faces(self, faces: List[Face]) -> Dict[str, Optional[dict]]:
         recognition_results = {}
         
         if not faces:
@@ -45,30 +45,11 @@ class FaceRecognizer(FaceRecognizerPort):
         
         return recognition_results
     
-    def _get_gallery_faces(self, uow: SqlAlchemyUnitOfWork) -> List[Face]:
+    def _get_gallery_faces(self, uow: UnitOfWork) -> List[Face]:
         from sqlalchemy import desc
-        from the_judge.infrastructure.db.models.tracking_models import Face as FaceModel
         
         with uow:
-            face_models = uow.session.query(FaceModel).order_by(desc(FaceModel.captured_at)).limit(100).all()
-            return [self._convert_to_domain_face(fm) for fm in face_models]
-    
-    def _convert_to_domain_face(self, face_model):
-        return Face(
-            id=face_model.id,
-            frame_id=face_model.frame_id,
-            bbox=face_model.bbox,
-            embedding=face_model.embedding,
-            normed_embedding=face_model.normed_embedding,
-            embedding_norm=face_model.embedding_norm,
-            det_score=face_model.det_score,
-            quality_score=face_model.quality_score,
-            pose=face_model.pose,
-            age=face_model.age,
-            sex=face_model.sex,
-            captured_at=face_model.captured_at,
-            uuid=face_model.uuid
-        )
+            return uow.session.query(Face).order_by(desc(Face.captured_at)).limit(100).all()
     
     def _is_valid_face(self, face: Face) -> bool:
         return (
