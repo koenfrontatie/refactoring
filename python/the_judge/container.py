@@ -6,9 +6,11 @@ from the_judge.infrastructure.db.engine import initialize_database
 from the_judge.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
 from the_judge.infrastructure.tracking.frame_collector import FrameCollector
+from the_judge.infrastructure.tracking.face_recognizer import FaceRecognizer
 from the_judge.application.processing_service import FrameProcessingService
+from the_judge.application.tracking_service import TrackingService
 from the_judge.application.messagebus import MessageBus
-from the_judge.domain.events import FrameIngested
+from the_judge.domain.events import FrameSaved, FrameProcessed
 from the_judge.entrypoints.socket_client import SocketIOClient
 
 
@@ -48,8 +50,23 @@ def create_app() -> App:
         uow_factory=uow_factory
     )
     
+    # Create face recognizer for tracking service
+    face_recognizer = FaceRecognizer(
+        uow_factory=uow_factory,
+        provider=face_provider,
+        threshold=get_settings().face_recognition_threshold,
+    )
+    
+    # Create tracking service
+    tracking_service = TrackingService(
+        face_recognizer=face_recognizer,
+        uow_factory=uow_factory,
+        bus=bus
+    )
+    
     # Wire up the message bus
-    bus.subscribe(FrameIngested, processing_service.handle_frame)
+    bus.subscribe(FrameSaved, processing_service.handle_frame_saved)
+    bus.subscribe(FrameProcessed, tracking_service.handle_frame_processed)
     
     # Only the entrypoint at this level
     ws_client = SocketIOClient(frame_collector)

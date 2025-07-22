@@ -81,7 +81,7 @@ class FaceBodyMatcher(FaceBodyMatcherPort):
         matches = {}
         for f_idx, b_idx in zip(face_indices, body_indices):
             match_score = 1.0 - cost_matrix[f_idx, b_idx]
-            if match_score >= 0.3:  # Original threshold
+            if match_score >= 0.3:  
                 matches[faces[f_idx].id] = bodies[b_idx].id
                 logger.debug(f"Face {faces[f_idx].id} matched to body {bodies[b_idx].id} with score {match_score:.3f}")
         

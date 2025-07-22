@@ -8,7 +8,7 @@ from typing import Callable, List
 from pathlib import Path
 
 from the_judge.domain.tracking.model import Detection
-from the_judge.domain.events import FrameAnalyzed, FrameIngested
+from the_judge.domain.events import FrameProcessed, FrameSaved
 from the_judge.application.messagebus import MessageBus
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
@@ -54,17 +54,17 @@ class FrameProcessingService:
         self.uow_factory = uow_factory
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
-    async def handle_frame(self, event: FrameIngested) -> None:
+    async def handle_frame_saved(self, event: FrameSaved) -> None:
         image_path = (
             Path(get_settings().get_stream_path(event.collection_id))
             / f"{event.camera_name}.jpg"
         )
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            self.executor, self.process_frame, event.frame_id, str(image_path)
+            self.executor, self.process_frame, event.frame_id, event.collection_id, str(image_path)
         )
 
-    def process_frame(self, frame_id: str, image_path: str) -> None:
+    def process_frame(self, frame_id: str, collection_id: str, image_path: str) -> None:
         try:
             image = self._load_image(image_path)
             if image is None:
@@ -72,20 +72,24 @@ class FrameProcessingService:
                 return
 
             faces, bodies = self._detect_objects(image, frame_id)
-            self._persist_faces_bodies(faces, bodies)
+            
+            # Store raw Face/Body objects (no visitor processing yet)
+            with self.uow_factory() as uow:
+                for obj in (*faces, *bodies):
+                    uow.repository.add(obj)
+                uow.commit()
 
             self.bus.handle(
-                FrameAnalyzed(
+                FrameProcessed(
                     frame_id=frame_id,
+                    collection_id=collection_id,
                     faces_detected=len(faces),
                     bodies_detected=len(bodies),
                     analyzed_at=datetime.now(),
                 )
             )
 
-            if not faces:
-                logger.info("No faces detected in frame %s", frame_id)
-                return
+            logger.info(f"Processed frame {frame_id} from collection {collection_id}: {len(faces)} faces, {len(bodies)} bodies")
             
         except Exception as exc:
             logger.exception("Error processing frame %s: %s", frame_id, exc)

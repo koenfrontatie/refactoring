@@ -8,6 +8,7 @@ from the_judge.infrastructure.tracking.providers import InsightFaceProvider
 from the_judge.domain.tracking.ports import FaceDetectorPort
 from the_judge.domain.tracking.model import Face
 from the_judge.common.logger import setup_logger
+from the_judge.common.datetime_utils import now
 
 logger = setup_logger("FaceDetector")
 
@@ -32,7 +33,7 @@ class FaceDetector(FaceDetectorPort):
 
     def detect_faces(self, image: np.ndarray, frame_id: str) -> List[Face]:
         faces_out: List[Face] = []
-        now = datetime.now()
+        now = now()
 
         for raw in self.app.get(image):  
             if not self._quality(raw):

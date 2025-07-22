@@ -6,7 +6,7 @@ from typing import Callable
 
 from the_judge.infrastructure.db.orm import Frame
 from the_judge.domain.tracking.ports import FrameCollectorPort
-from the_judge.domain.events import FrameIngested
+from the_judge.domain.events import FrameSaved
 from the_judge.application.messagebus import MessageBus
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.common.logger import setup_logger
@@ -65,7 +65,7 @@ class FrameCollector(FrameCollectorPort):
             uow.commit()
         
         # Use the ID we created, not frame.id
-        event = FrameIngested(
+        event = FrameSaved(
             frame_id=frame_id,  
             camera_name=command.camera_name,
             collection_id=command.collection_id,
