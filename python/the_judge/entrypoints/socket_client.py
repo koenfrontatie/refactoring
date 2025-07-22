@@ -9,11 +9,11 @@ log = logging.getLogger("SocketIOClient")
 _URI = get_settings().socket_url.replace("ws://", "http://").replace("wss://", "https://")
 
 class SocketIOClient:
-    def __init__(self, camera_service) -> None:
+    def __init__(self, frame_collector) -> None:
         self.sio = socketio.AsyncClient(reconnection=True)
             
         self._install_basic_logs()
-        reg_handlers(self.sio, camera_service)
+        reg_handlers(self.sio, frame_collector)
 
     async def connect(self) -> None:
         await self.sio.connect(_URI, transports=("websocket", "polling"))

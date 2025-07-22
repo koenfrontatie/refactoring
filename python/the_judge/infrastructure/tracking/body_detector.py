@@ -12,8 +12,8 @@ logger = setup_logger('BodyDetector')
 
 class BodyDetector(BodyDetectorPort):
     
-    def __init__(self):
-        self.model = YOLOProvider.get_instance()
+    def __init__(self, model):
+        self.model = model
     
     def detect_bodies(self, image: np.ndarray, frame_id: str) -> List[Body]:
         if self.model is None:
@@ -21,14 +21,12 @@ class BodyDetector(BodyDetectorPort):
             return []
         
         try:
-            # Use original detection logic
             results = self.model(image, verbose=False)[0]
             bodies = []
             
             for r in results.boxes.data:
                 x1, y1, x2, y2, conf, cls = r.tolist()
                 if int(cls) == 0:  # Person class
-                    # Convert to (x, y, w, h) format like original
                     rect = (int(x1), int(y1), int(x2), int(y2))
                     
                     body = Body(

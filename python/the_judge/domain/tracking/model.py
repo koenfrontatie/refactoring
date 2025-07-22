@@ -4,14 +4,14 @@ from datetime import datetime
 from typing import Optional
 import numpy as np
 
-@dataclass(frozen=True)
+@dataclass
 class Frame:
     id: str
     camera_name: str
     captured_at: datetime
     collection_id: Optional[str]
 
-@dataclass(frozen=True)
+@dataclass
 class Face:
     id: str
     frame_id: str
@@ -26,14 +26,14 @@ class Face:
     sex: str
     captured_at: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class Body:
     id: str
     frame_id: str
     bbox: tuple[int, int, int, int]
     captured_at: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class Detection:
     id: str
     frame_id: str
@@ -42,7 +42,7 @@ class Detection:
     visitor_record: dict
     captured_at: datetime
 
-@dataclass(frozen=True)
+@dataclass
 class Collection:
     id: str
     created_at: datetime

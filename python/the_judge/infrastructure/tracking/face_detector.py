@@ -79,8 +79,13 @@ class FaceDetector(FaceDetectorPort):
         return True
 
     def _quality_score(self, f) -> float:
-        det = getattr(f, "det_score", 0.0)
-        norm = min(1.0, getattr(f, "embedding_norm", 0.0) / 20.0)
+        det_score = getattr(f, "det_score", 0.0)
+        norm_score = min(1.0, getattr(f, "embedding_norm", 0.0) / 20.0)
         yaw, pitch, _ = getattr(f, "pose", (0.0, 0.0, 0.0))
         pose_penalty = max(0.0, 1.0 - (abs(yaw) + abs(pitch)) / 90.0)
-        return max(0.0, min(1.0, det * 0.6 + norm * 0.3 + pose_penalty * 0.1))
+
+        final_quality = (det_score * 0.6 + norm_score * 0.3 + pose_penalty * 0.1)
+        final_quality = max(0.0, min(1.0, final_quality))
+        
+        return final_quality
+

@@ -1,25 +1,19 @@
 import asyncio
 
 from the_judge.common.logger import setup_logger
-from the_judge.container import build_runtime
+from the_judge.container import create_app
 
 logger = setup_logger("main")
 
 async def main() -> None:
-    app = build_runtime()       
-    
+    app = create_app()
     try:
-        await app.ws_client.connect()
-    except KeyboardInterrupt:
-            # allow Ctrl‑C to break us out
-            pass
-    finally:
-        try:
-            await app.ws_client.disconnect()
-        except Exception:
-            pass
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
+        await app.start()
     except KeyboardInterrupt:
         pass
+    finally:
+        await app.stop()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
