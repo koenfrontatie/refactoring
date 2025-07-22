@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Union, Optional
 
@@ -12,44 +12,39 @@ def now() -> datetime:
     """Get current local datetime object."""
     return datetime.now(LOCAL_TZ)
 
-
-def to_db_string(dt: datetime = None) -> str:
+def to_formatted_string(dt: datetime = None) -> str:
     """Convert datetime to database format string."""
     if dt is None:
         dt = now()
     return dt.strftime('%Y-%m-%d %H:%M:%S')
 
-
-def time_diff_minutes(start: Union[str, datetime, None], 
-                     end: Union[str, datetime, None] = None) -> float:
-    """Calculate time difference in minutes between two timestamps."""
+def from_formatted_string(db_string: str) -> datetime:
+    """Convert database format string to timezone-aware datetime."""
+    if not db_string:
+        return now()
+    
     try:
-        if start is None:
-            return 0.0
-            
-        if isinstance(start, str):
-            start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
-            if start_dt.tzinfo is None:
-                start_dt = start_dt.replace(tzinfo=LOCAL_TZ)
+        dt = datetime.strptime(db_string, '%Y-%m-%d %H:%M:%S')
+        return dt.replace(tzinfo=LOCAL_TZ) 
+    except ValueError as e:
+        logger.warning(f"Failed to parse DB string '{db_string}': {e}")
+        return now()
+
+def time_since(start_time: Union[str, datetime, None]) -> timedelta:
+    """Calculate time elapsed since start_time. Returns timedelta(0) on error."""
+    try:
+        if start_time is None:
+            return timedelta(0)
+        
+        if isinstance(start_time, str):
+            start_dt = from_formatted_string(start_time) 
         else:
-            start_dt = start
+            start_dt = start_time
             if start_dt.tzinfo is None:
                 start_dt = start_dt.replace(tzinfo=LOCAL_TZ)
         
-        if end is None:
-            end_dt = now()
-        elif isinstance(end, str):
-            end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
-            if end_dt.tzinfo is None:
-                end_dt = end_dt.replace(tzinfo=LOCAL_TZ)
-        else:
-            end_dt = end
-            if end_dt.tzinfo is None:
-                end_dt = end_dt.replace(tzinfo=LOCAL_TZ)
-        
-        diff_seconds = (end_dt - start_dt).total_seconds()
-        return diff_seconds / 60.0
+        return now() - start_dt
         
     except Exception as e:
-        logger.warning(f"Error calculating time difference: {e}")
-        return 0.0
+        logger.warning(f"Error calculating time since: {e}")
+        return timedelta(0)

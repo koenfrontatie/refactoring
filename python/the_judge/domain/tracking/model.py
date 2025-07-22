@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 import numpy as np
+from enum import Enum
 
 @dataclass
 class Frame:
@@ -76,3 +77,57 @@ class Visitor:
             'created_at': self.created_at
         }
 
+
+'''
+@dataclass
+class VisitorState(Enum):
+    NEW = "new"
+    TEMPORARY = "temporary"
+    PERMANENT = "permanent"
+    MISSING = "missing"
+
+@dataclass
+class Visitor:
+    id: str
+    name: str
+    state: VisitorState
+    face_id: str
+    body_id: str
+    seen_count: int = 0
+    captured_at: datetime
+    created_at: datetime
+    
+    @property
+    def time_since_capture(self) -> timedelta:
+        return datetime.now() - self.captured_at
+    
+    @property
+    def time_since_last_seen(self) -> timedelta:
+        return datetime.now() - self.last_seen
+    
+    @property
+    def is_missing(self) -> bool:
+        return self.time_since_last_seen > timedelta(minutes=5) 
+    
+    @property
+    def should_be_promoted(self) -> bool:
+        return (self.state == VisitorState.TEMPORARY and self.seen_count >= 3)  
+    
+    @property
+    def should_be_removed(self) -> bool:
+        return (self.state == VisitorState.TEMPORARY and 
+                self.time_since_last_seen > timedelta(minutes=2))
+    
+    def record(self) -> dict:
+        return {
+            'id': self.id,
+            'name': self.name,
+            'state': self.state,
+            'face_id': self.face_id,
+            'body_id': self.body_id,
+            'captured_at': self.captured_at,
+            'created_at': self.created_at
+        }
+
+
+'''

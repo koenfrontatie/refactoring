@@ -86,17 +86,7 @@ class FrameProcessingService:
             if not faces:
                 logger.info("No faces detected in frame %s", frame_id)
                 return
-
-            detections = self._build_detections(frame_id, faces, bodies)
-            self._persist_detections(detections)
-
-            logger.info(
-                "Frame %s: %d faces, %d bodies, %d detections",
-                frame_id,
-                len(faces),
-                len(bodies),
-                len(detections),
-            )
+            
         except Exception as exc:
             logger.exception("Error processing frame %s: %s", frame_id, exc)
 
@@ -108,37 +98,3 @@ class FrameProcessingService:
         faces = self.face_detector.detect_faces(image, frame_id)
         bodies = self.body_detector.detect_bodies(image, frame_id)
         return faces, bodies
-
-    def _persist_faces_bodies(self, faces, bodies) -> None:
-        with self.uow_factory() as uow:
-            for obj in (*faces, *bodies):
-                uow.repository.add(obj)
-            uow.commit()
-
-    def _build_detections(
-        self, frame_id: str, faces, bodies
-    ) -> List[Detection]:
-        face_body_map = self.face_body_matcher.match_faces_to_bodies(
-            faces, bodies
-        )
-        recognition = self.face_recognizer.recognize_faces(faces)
-        now = datetime.now()
-        detections: List[Detection] = []
-        for face in faces:
-            detections.append(
-                Detection(
-                    id=str(uuid.uuid4()),
-                    frame_id=frame_id,
-                    face_id=face.id,
-                    body_id=face_body_map.get(face.id),
-                    visitor_record=recognition.get(face.id, {}),
-                    captured_at=now,
-                )
-            )
-        return detections
-
-    def _persist_detections(self, detections) -> None:
-        with self.uow_factory() as uow:
-            for det in detections:
-                uow.repository.add(det)
-            uow.commit()
