@@ -16,7 +16,7 @@ class Settings(BaseModel):
     # Detection settings
     face_detection_threshold: float = Field(default=0.6, env="FACE_DETECTION_THRESHOLD")
     face_recognition_threshold: float = Field(default=0.4, env="FACE_RECOGNITION_THRESHOLD")
-    model_path: Path = Field(default=Path("infrastructure/models"), env="MODEL_PATH")
+    model_path: Path = Field(default=Path("the_judge/infrastructure/models"), env="MODEL_PATH")
     
     # Storage paths
     storage_dir: Path = Field(default=Path("storage"), env="STORAGE_DIR")

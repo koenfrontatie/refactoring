@@ -1,4 +1,4 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 22-07-25 10:37:36.86
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 22-07-25 14:22:54.60
 ============================================================
 python
 |   .env
@@ -20,7 +20,6 @@ python
 |   +--- application
 |   |   |   messagebus.py
 |   |   |   processing_service.py
-|   |   |   unit_of_work.py
 |   |   |   __init__.py
 |   +--- common
 |   |   |   datetime_utils.py
@@ -33,7 +32,6 @@ python
 |   |   |   |   commands.py
 |   |   |   |   model.py
 |   |   |   |   ports.py
-|   |   |   |   repository.py
 |   |   |   |   __init__.py
 |   +--- entrypoints
 |   |   |   handlers.py

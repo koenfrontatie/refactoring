@@ -35,8 +35,8 @@ def create_app() -> App:
     initialize_database()
 
     # ML providers
-    face_model = InsightFaceProvider()
-    body_model = YOLOProvider()
+    face_provider = InsightFaceProvider()
+    body_provider = YOLOProvider()
 
     # Message bus and UoW factory
     bus = MessageBus()
@@ -44,7 +44,7 @@ def create_app() -> App:
 
     # Adapters
     face_detector = FaceDetector(
-        insight_provider=face_model,
+        insight_provider=face_provider,
         det_thresh=0.5,
         min_area=2500,
         min_norm=15.0,
@@ -52,13 +52,13 @@ def create_app() -> App:
         max_pitch=30.0,
     )
 
-    body_detector = BodyDetector(model=body_model)
+    body_detector = BodyDetector(body_provider)
     
     face_body_matcher = FaceBodyMatcher()
     
     face_recognizer = FaceRecognizer(
         uow_factory=uow_factory,
-        model=face_model,
+        provider=face_provider,
         threshold=cfg.face_recognition_threshold,
     )
 

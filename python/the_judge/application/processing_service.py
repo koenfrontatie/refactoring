@@ -45,7 +45,7 @@ class FrameProcessingService:
     async def handle_frame(self, event: FrameIngested) -> None:
         image_path = (
             Path(get_settings().get_stream_path(event.collection_id))
-            / f"{event.frame_id}.jpg"
+            / f"{event.camera_name}.jpg"
         )
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(

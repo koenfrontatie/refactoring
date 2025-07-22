@@ -4,7 +4,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
-from the_judge.domain.tracking.model import Frame
+from the_judge.infrastructure.db.orm import Frame
 from the_judge.domain.tracking.ports import FrameCollectorPort
 from the_judge.domain.events import FrameIngested
 from the_judge.application.messagebus import MessageBus
@@ -46,24 +46,31 @@ class FrameCollector(FrameCollectorPort):
             self.executor, filepath.write_bytes, command.frame_data
         )
 
+        frame_id = str(uuid.uuid4())
+        frame = Frame(
+            id=frame_id,
+            camera_name=command.camera_name,
+            captured_at=datetime.now(),
+            collection_id=command.collection_id,
+        )
+        
+        # Use UoW only for persistence
         with self.uow_factory() as uow:
-            frame = Frame(
-                id=str(uuid.uuid4()),
-                camera_name=command.camera_name,
-                captured_at=datetime.now(),
-                collection_id=command.collection_id,
-            )
-            frame = uow.repository.add(frame)
+            uow.repository.add(frame)
             uow.commit()
+        
+        # Use the ID we created, not frame.id
+        event = FrameIngested(
+            frame_id=frame_id,  
+            camera_name=command.camera_name,
+            collection_id=command.collection_id,
+            ingested_at=datetime.now(),
+        )
+        self.bus.handle(event)
 
         logger.info(
             f"Saved frame from {command.camera_name} to {filepath.absolute()} and database"
         )
 
-        event = FrameIngested(
-            frame_id=frame.id,
-            camera_name=command.camera_name,
-            collection_id=command.collection_id,
-            ingested_at=datetime.now(),
-        )
+
         self.bus.handle(event)

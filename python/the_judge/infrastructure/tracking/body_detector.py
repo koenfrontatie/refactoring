@@ -12,8 +12,8 @@ logger = setup_logger('BodyDetector')
 
 class BodyDetector(BodyDetectorPort):
     
-    def __init__(self, model):
-        self.model = model
+    def __init__(self, provider):
+        self.model = provider.model
     
     def detect_bodies(self, image: np.ndarray, frame_id: str) -> List[Body]:
         if self.model is None:

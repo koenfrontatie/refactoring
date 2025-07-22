@@ -4,7 +4,7 @@ from typing import List, Callable, Tuple
 
 import cv2
 import numpy as np
-
+from the_judge.infrastructure.tracking.providers import InsightFaceProvider
 from the_judge.domain.tracking.ports import FaceDetectorPort
 from the_judge.domain.tracking.model import Face
 from the_judge.common.logger import setup_logger
@@ -13,9 +13,9 @@ logger = setup_logger("FaceDetector")
 
 
 class FaceDetector(FaceDetectorPort):
-    def __init__(
+    def __init__(                       # only this block modified
         self,
-        insight_provider,
+        insight_provider,                # expects provider instance
         *,
         det_thresh: float,
         min_area: int,
@@ -23,7 +23,7 @@ class FaceDetector(FaceDetectorPort):
         max_yaw: float,
         max_pitch: float,
     ):
-        self.app = insight_provider
+        self.app = insight_provider.app  # store raw FaceAnalysis object
         self.det_thresh = det_thresh
         self.min_area = min_area
         self.min_norm = min_norm
@@ -31,13 +31,10 @@ class FaceDetector(FaceDetectorPort):
         self.max_pitch = max_pitch
 
     def detect_faces(self, image: np.ndarray, frame_id: str) -> List[Face]:
-        if self.app is None:
-            return []
-
         faces_out: List[Face] = []
         now = datetime.now()
 
-        for raw in self.app.get(image):
+        for raw in self.app.get(image):  
             if not self._quality(raw):
                 continue
 
@@ -88,4 +85,3 @@ class FaceDetector(FaceDetectorPort):
         final_quality = max(0.0, min(1.0, final_quality))
         
         return final_quality
-
