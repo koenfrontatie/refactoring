@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from abc import ABC
-from datetime import datetime
-from tracking import Frame, Face, Body, Detection
+from typing import Optional
+from the_judge.domain.tracking import Frame, Face, Body
 
 class Event(ABC):
     pass
@@ -13,3 +13,5 @@ class FrameSaved(Event):
 @dataclass
 class FrameProcessed(Event):
     frame: Frame
+    faces: Optional[list[Face]]
+    bodies: Optional[list[Body]]

@@ -12,6 +12,7 @@ class Frame:
     captured_at: datetime
     collection_id: str
 
+# we will eventually separate embedding from face, so we can have a max stored embeddings per visitor entity
 @dataclass
 class Face:
     id: str

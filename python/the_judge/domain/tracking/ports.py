@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Any, Dict, Optional, Type
+from typing import List, Any, Dict, Optional, Type, Tuple
 import numpy as np
 from the_judge.domain.tracking.model import Frame, Face, Body
 
@@ -32,7 +32,7 @@ class BodyDetectorPort(ABC):
 
 class FaceBodyMatcherPort(ABC):
     @abstractmethod
-    def match_faces_to_bodies(self, faces: List[Face], bodies: List[Body]) -> Dict[str, str]:
+    def match_faces_to_bodies(self, faces: List[Face], bodies: List[Body]) -> List[Tuple[Face, Optional[Body]]]:
         """Match faces to bodies using geometric/spatial analysis. Returns face_id -> body_id mapping."""
         pass
 

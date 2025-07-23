@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 from the_judge.common.datetime_utils import now
 from the_judge.common.logger import setup_logger
-from the_judge.domain.tracking.commands import StartCollectionCommand, IngestFrameCommand, RegisterCameraCommand, UnregisterCameraCommand
+from the_judge.domain.tracking.commands import StartCollectionCommand, SaveFrameCommand, RegisterCameraCommand, UnregisterCameraCommand
 from the_judge.domain.tracking.ports import FrameCollectorPort
 
 logger = setup_logger('SocketHandlers')
@@ -54,7 +54,7 @@ def register(sio, frame_collector: FrameCollectorPort):
     @sio.on(Event.FRAME)
     async def handle_camera_frame(payload):
         try:
-            command = IngestFrameCommand.model_validate(payload)
+            command = SaveFrameCommand.model_validate(payload)
         except ValidationError as e:
             logger.warning(f"Invalid frame payload: {e}")
             return

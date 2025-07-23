@@ -3,7 +3,7 @@ from pydantic import BaseModel
 class StartCollectionCommand(BaseModel):
     collection_id: str
 
-class IngestFrameCommand(BaseModel):
+class SaveFrameCommand(BaseModel):
     camera_name: str
     collection_id: str
     frame_data: bytes

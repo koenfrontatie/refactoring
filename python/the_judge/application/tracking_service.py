@@ -1,137 +1,113 @@
 import asyncio
-from typing import List, Optional, Callable
+from typing import List, Optional, Tuple, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from the_judge.infrastructure.tracking.providers import InsightFaceProvider
+from the_judge.domain.tracking.ports import FaceMLProvider
 
 from the_judge.application.messagebus import MessageBus
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
-from the_judge.infrastructure.tracking import FaceRecognizer, FaceBodyMatcher
-from the_judge.domain.events import FrameProcessed
+from the_judge.domain.tracking.events import FrameProcessed
 from the_judge.common.logger import setup_logger
 from the_judge.common.datetime_utils import now
-from the_judge.domain.tracking.model import Frame
+from the_judge.domain.tracking import Frame, Detection, Face, Body
+from the_judge.domain.tracking import FaceBodyMatcherPort, FaceRecognizerPort
 from the_judge.settings import get_settings
 logger = setup_logger("TrackingService")
 
 @dataclass
 class CollectionBuffer:
+    # this buffer resets / clears when a new collection id is detected in incoming frames
     collection_id: str
     frames: set[Frame] = field(default_factory=set)
+    detections: set[Detection] = field(default_factory=set)
 
     def add_frame(self, frame: Frame):
         self.frames.add(frame)
-        logger.debug(f"Added frame {frame.id} to collection {self.collection_id}. Total frames: {len(self.frames)}")
+
+    def add_detection(self, detection: Detection):
+        self.detections.add(detection)
+
+    def clear(self):
+        self.frames.clear()
+        self.detections.clear()
 
 class TrackingService:
     def __init__(
         self,
-        face_provider: InsightFaceProvider,
+        face_provider: FaceMLProvider,
         uow_factory: Callable[[], AbstractUnitOfWork],
         bus: MessageBus
     ):
-        self.face_recognizer = FaceRecognizer(
-            uow_factory=uow_factory,
-            provider=face_provider,
-            threshold=get_settings().face_recognition_threshold,
-        )
-
         self.uow_factory = uow_factory
         self.bus = bus
-        self.face_body_matcher = FaceBodyMatcher()
-        
+        self.face_body_matcher = face_provider.get_face_body_matcher()
+        self.face_recognizer = face_provider.get_face_recognizer()
 
-        # Simple single collection tracking
         self.current_collection: Optional[CollectionBuffer] = None
-        self.timeout_task: Optional[asyncio.Task] = None
     
-    async def handle_frame_processed(self, event: FrameProcessed):
-        """Buffer frame results and manage collection timeout."""
-        collection_id = event.collection_id
-        
+    async def handle_frame_processed(self, event: FrameProcessed):        
         # Check if this is a new collection
-        if self.current_collection is None or self.current_collection.collection_id != collection_id:
-            # New collection - cancel previous if exists
-            await self._cancel_current_collection()
-            
-            # Start new collection
-            self.current_collection = CollectionBuffer(collection_id)
-            logger.info(f"Started tracking new collection: {collection_id}")
-        
-        # Add frame to current collection
-        self.current_collection.add_frame(event.frame_id)
-        
-        # Reset timeout
-        await self._reset_timeout()
+        if self.current_collection is None or self.current_collection.collection_id != event.frame.collection_id:
+            self.current_collection.clear()
+            self.current_collection = CollectionBuffer(event.frame.collection_id)
+
+        self.current_collection.add_frame(event.frame)  
+
+        composites = self.face_body_matcher.match_faces_to_bodies(event.faces, event.bodies)
+
+        # we need to create detections for these composites, but detections should be created only after recognition
+        # we need to either identify composites to a visitor id or create a new visitor / visitor record
+        matches_after_identification = self.perform_detection(composites)
+
+        with self.uow_factory() as uow:
+            # Get the face recognizer
+            # Perform recognition
+            result = await self.face_recognizer.recognize(event.faces) #faces: List[Face])
+            # Handle the result
+            await self.handle_recognition_result(result)
     
-    async def _cancel_current_collection(self):
-        """Cancel current collection processing without completing it."""
-        if self.timeout_task and not self.timeout_task.done():
-            self.timeout_task.cancel()
-            logger.info(f"Cancelled collection {self.current_collection.collection_id if self.current_collection else 'unknown'}")
+    '''
+    id: str
+    frame_id: str
+    face_id: Optional[str]
+    body_id: Optional[str]
+    visitor_record: dict
+    captured_at: datetime
+
+
+            for face, body in matches:
+            detection = Detection(
+                frame_id=event.frame.id,
+                face_id=face.id,
+                body_id=body.id,
+                visitor_record= None,
+                captured_at=now()
+            )
+            self.current_collection.add_detection(detection)
+    '''
+    async def perform_detection(self, faces: List[Tuple[Face, Optional[Body]]]) -> List[Tuple[Face, Optional[Body], Optional[str]]]:
+        if not faces:
+            logger.warning("No faces to recognize")
+            return []
+
+        results = self.face_recognizer.recognize_faces(faces)
+        # recognize faces should return 
+        with self.uow_factory() as uow:
+            for face_id, result in results.items():
+                if result is None:
+                    continue
+                # Create detection or update existing one
+                detection = Detection(
+                    id=result['id'],
+                    frame_id=result['frame_id'],
+                    face_id=face_id,
+                    body_id=result.get('body_id'),
+                    visitor_record=result.get('visitor_record', {}),
+                    captured_at=now()
+                )
+                uow.repository.add(detection)
+            uow.commit()
         
-        self.timeout_task = None
-    
-    async def _reset_timeout(self):
-        """Reset the collection timeout."""
-        # Cancel existing timeout
-        if self.timeout_task and not self.timeout_task.done():
-            self.timeout_task.cancel()
-        
-        # Start new timeout
-        self.timeout_task = asyncio.create_task(self._timeout_handler())
-        logger.debug(f"Reset timeout for collection {self.current_collection.collection_id}")
-    
-    async def _timeout_handler(self):
-        """Wait for timeout, then process collection."""
-        try:
-            await asyncio.sleep(self.collection_timeout)
-            
-            if self.current_collection:
-                collection_id = self.current_collection.collection_id
-                frame_count = len(self.current_collection.frame_ids)
-                
-                logger.info(f"Collection {collection_id} timeout reached. Processing {frame_count} frames.")
-                
-                # Process the collection
-                await self.process_collection()
-                
-                # Cleanup
-                self.current_collection = None
-                self.timeout_task = None
-                
-                logger.info(f"Completed processing collection {collection_id}")
-                
-        except asyncio.CancelledError:
-            logger.debug("Collection timeout cancelled")
-    
-    async def process_collection(self):
-        """Process the current collection as batch."""
-        if not self.current_collection:
-            logger.warning("No current collection to process")
-            return
-        
-        collection_id = self.current_collection.collection_id
-        frame_ids = self.current_collection.frame_ids
-        
-        try:
-            logger.info(f"Starting batch processing for collection {collection_id} with {len(frame_ids)} frames")
-            
-            # TODO: Implement the actual batch processing
-            # 1. Get all faces from these frames
-            # 2. Do batch face recognition  
-            # 3. Handle known/new visitors
-            # 4. Create detections
-            
-            # For now, just log what we would do
-            with self.uow_factory() as uow:
-                # faces = uow.repository.get_faces_by_frame_ids(frame_ids)
-                # recognition_results = self.face_recognizer.recognize_faces(faces)
-                # ... batch processing logic here
-                
-                logger.info(f"Would process faces from frames: {frame_ids}")
-                # uow.commit()
-                
-        except Exception as e:
-            logger.error(f"Error processing collection {collection_id}: {e}", exc_info=True)
+        # Notify the bus about the processed frame
+        self.bus.handle(FrameProcessed(frame=faces[0], faces=faces))

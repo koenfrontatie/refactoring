@@ -6,11 +6,10 @@ from the_judge.infrastructure.db.engine import initialize_database
 from the_judge.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
 from the_judge.infrastructure.tracking.frame_collector import FrameCollector
-from the_judge.infrastructure.tracking.face_recognizer import FaceRecognizer
 from the_judge.application.processing_service import FrameProcessingService
 from the_judge.application.tracking_service import TrackingService
 from the_judge.application.messagebus import MessageBus
-from the_judge.domain.events import FrameSaved, FrameProcessed
+from the_judge.domain.tracking import FrameSaved, FrameProcessed
 from the_judge.entrypoints.socket_client import SocketIOClient
 
 
@@ -29,15 +28,12 @@ class App:
 def create_app() -> App:
     initialize_database()
 
-    # Only create the HEAVY things that are expensive
     face_provider = InsightFaceProvider()
     body_provider = YOLOProvider()
     
-    # Create lightweight infrastructure
     bus = MessageBus()
     uow_factory = SqlAlchemyUnitOfWork
     
-    # Services self-initialize with their adapters
     processing_service = FrameProcessingService(
         face_provider=face_provider,
         body_provider=body_provider,
@@ -45,27 +41,20 @@ def create_app() -> App:
         uow_factory=uow_factory
     )
     
+    tracking_service = TrackingService(
+        face_provider=face_provider,
+        uow_factory=uow_factory,
+        bus=bus
+    )
+
     frame_collector = FrameCollector(
         bus=bus, 
         uow_factory=uow_factory
     )
     
-    # Create face recognizer for tracking service
-    face_recognizer = FaceRecognizer(
-        uow_factory=uow_factory,
-        provider=face_provider,
-        threshold=get_settings().face_recognition_threshold,
-    )
-    
-    # Create tracking service
-    tracking_service = TrackingService(
-        face_recognizer=face_recognizer,
-        uow_factory=uow_factory,
-        bus=bus
-    )
     
     # Wire up the message bus
-    bus.subscribe(FrameSaved, processing_service.handle_frame_saved)
+    bus.subscribe(FrameSaved, processing_service.on_frame_saved)
     bus.subscribe(FrameProcessed, tracking_service.handle_frame_processed)
     
     # Only the entrypoint at this level

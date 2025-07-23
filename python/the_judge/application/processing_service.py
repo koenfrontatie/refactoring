@@ -7,15 +7,9 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, List
 from pathlib import Path
 
-from the_judge.domain.tracking.model import Detection, Frame
-from the_judge.domain.events import FrameProcessed, FrameSaved
+from the_judge.domain.tracking import Frame, Face, Body, FaceMLProvider, BodyMLProvider, FrameProcessed, FrameSaved
 from the_judge.application.messagebus import MessageBus
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
-from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
-from the_judge.infrastructure.tracking.face_detector import FaceDetector
-from the_judge.infrastructure.tracking.body_detector import BodyDetector
-from the_judge.infrastructure.tracking.face_body_matcher import FaceBodyMatcher
-from the_judge.infrastructure.tracking.face_recognizer import FaceRecognizer
 from the_judge.settings import get_settings
 from the_judge.common.logger import setup_logger
 
@@ -25,48 +19,37 @@ logger = setup_logger("FrameProcessingService")
 class FrameProcessingService:
     def __init__(
         self,
-        face_provider: InsightFaceProvider,
-        body_provider: YOLOProvider,
+        face_provider: FaceMLProvider,
+        body_provider: BodyMLProvider,
         bus: MessageBus,
         uow_factory: Callable[[], AbstractUnitOfWork],
         max_workers: int = 4,
     ):
-        
-        self.face_detector = FaceDetector(
-            insight_provider=face_provider,
-            det_thresh=0.5,
-            min_area=2500,
-            min_norm=15.0,
-            max_yaw=45.0,
-            max_pitch=30.0,
-        )
-        
-        self.body_detector = BodyDetector(body_provider)
-        
+        self.face_provider = face_provider
+        self.body_provider = body_provider
         self.bus = bus
         self.uow_factory = uow_factory
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
-    async def handle_frame_saved(self, event: FrameSaved) -> None:
+    async def on_frame_saved(self, event: FrameSaved) -> None:
         image_path = (
             Path(get_settings().get_stream_path(event.frame.collection_id))
             / f"{event.frame.camera_name}.jpg"
         )
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            self.executor, self.process_frame, event.frame.id, event.frame.collection_id, str(image_path)
+            self.executor, self.process_frame, event.frame, str(image_path)
         )
 
-    def process_frame(self, frame: Frame) -> None:
+    def process_frame(self, frame: Frame, image_path: str) -> None:
         try:
-            image = self._load_image(frame.image_path)
+            image = self._load_image(image_path)
             if image is None:
-                logger.error("Failed to load image %s", frame.image_path)
+                logger.error("Failed to load image %s", image_path)
                 return
 
             faces, bodies = self._detect_objects(image, frame.id)
 
-            # Store raw Face/Body objects (no visitor processing yet)
             with self.uow_factory() as uow:
                 for obj in (*faces, *bodies):
                     uow.repository.add(obj)
@@ -74,20 +57,26 @@ class FrameProcessingService:
 
             self.bus.handle(
                 FrameProcessed(
-                    frame=frame
+                    frame=frame,
+                    faces=faces,
+                    bodies=bodies
                 )
             )
 
-            logger.info(f"Processed frame {frame.id} from collection {frame.collection_id}: {len(faces)} faces, {len(bodies)} bodies")
+            logger.info("Processed frame %s from collection %s: %d faces, %d bodies", frame.id, frame.collection_id, len(faces), len(bodies))
 
         except Exception as exc:
-            logger.exception("Error processing frame %s: %s", frame.id, exc)
+            logger.exception("Error processing frame %s", frame.id)
 
     def _load_image(self, image_path: str):
         img = cv2.imread(image_path)
         return None if img is None else cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    def _detect_objects(self, image: np.ndarray, frame_id: str):
-        faces = self.face_detector.detect_faces(image, frame_id)
-        bodies = self.body_detector.detect_bodies(image, frame_id)
+    def _detect_objects(self, image: np.ndarray, frame_id: str) -> tuple[list[Face], list[Body]]:
+        face_detector = self.face_provider.get_face_detector()
+        body_detector = self.body_provider.get_body_detector()
+        
+        faces = face_detector.detect_faces(image, frame_id)
+        bodies = body_detector.detect_bodies(image, frame_id)
+
         return faces, bodies
