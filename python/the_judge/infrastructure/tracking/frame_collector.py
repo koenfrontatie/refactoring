@@ -66,11 +66,9 @@ class FrameCollector(FrameCollectorPort):
         
         # Use the ID we created, not frame.id
         event = FrameSaved(
-            frame_id=frame_id,  
-            camera_name=command.camera_name,
-            collection_id=command.collection_id,
-            ingested_at=datetime.now(),
+            frame=frame
         )
+        
         self.bus.handle(event)
 
         logger.info(

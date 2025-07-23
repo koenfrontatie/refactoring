@@ -3,37 +3,45 @@ from typing import List, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from the_judge.infrastructure.tracking.providers import InsightFaceProvider
+
 from the_judge.application.messagebus import MessageBus
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
+from the_judge.infrastructure.tracking import FaceRecognizer, FaceBodyMatcher
 from the_judge.domain.events import FrameProcessed
 from the_judge.common.logger import setup_logger
 from the_judge.common.datetime_utils import now
-
+from the_judge.domain.tracking.model import Frame
+from the_judge.settings import get_settings
 logger = setup_logger("TrackingService")
 
 @dataclass
 class CollectionBuffer:
     collection_id: str
-    frame_ids: List[str] = field(default_factory=list)
-    started_at: datetime = field(default_factory=now)
-    
-    def add_frame(self, frame_id: str):
-        self.frame_ids.append(frame_id)
-        logger.debug(f"Added frame {frame_id} to collection {self.collection_id}. Total frames: {len(self.frame_ids)}")
+    frames: set[Frame] = field(default_factory=set)
+
+    def add_frame(self, frame: Frame):
+        self.frames.add(frame)
+        logger.debug(f"Added frame {frame.id} to collection {self.collection_id}. Total frames: {len(self.frames)}")
 
 class TrackingService:
     def __init__(
         self,
-        face_recognizer,
+        face_provider: InsightFaceProvider,
         uow_factory: Callable[[], AbstractUnitOfWork],
-        bus: MessageBus,
-        collection_timeout: float = 2.0
+        bus: MessageBus
     ):
-        self.face_recognizer = face_recognizer
+        self.face_recognizer = FaceRecognizer(
+            uow_factory=uow_factory,
+            provider=face_provider,
+            threshold=get_settings().face_recognition_threshold,
+        )
+
         self.uow_factory = uow_factory
         self.bus = bus
-        self.collection_timeout = collection_timeout
+        self.face_body_matcher = FaceBodyMatcher()
         
+
         # Simple single collection tracking
         self.current_collection: Optional[CollectionBuffer] = None
         self.timeout_task: Optional[asyncio.Task] = None

@@ -10,7 +10,7 @@ class Frame:
     id: str
     camera_name: str
     captured_at: datetime
-    collection_id: Optional[str]
+    collection_id: str
 
 @dataclass
 class Face:
@@ -21,10 +21,10 @@ class Face:
     normed_embedding: np.ndarray
     embedding_norm: float
     det_score: float
-    quality_score: float
-    pose: str
-    age: int
-    sex: str
+    quality_score: Optional[float]
+    pose: Optional[str]
+    age: Optional[int]
+    sex: Optional[str]
     captured_at: datetime
 
 @dataclass

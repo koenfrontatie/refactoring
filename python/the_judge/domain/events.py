@@ -1,21 +1,15 @@
 from dataclasses import dataclass
 from abc import ABC
 from datetime import datetime
+from tracking import Frame, Face, Body, Detection
 
 class Event(ABC):
     pass
 
 @dataclass
 class FrameSaved(Event):
-    frame_id: str
-    camera_name: str
-    collection_id: str
-    ingested_at: datetime
+    frame: Frame
 
 @dataclass
 class FrameProcessed(Event):
-    frame_id: str
-    collection_id: str
-    faces_detected: int
-    bodies_detected: int
-    analyzed_at: datetime
+    frame: Frame

@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, List
 from pathlib import Path
 
-from the_judge.domain.tracking.model import Detection
+from the_judge.domain.tracking.model import Detection, Frame
 from the_judge.domain.events import FrameProcessed, FrameSaved
 from the_judge.application.messagebus import MessageBus
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
@@ -31,7 +31,7 @@ class FrameProcessingService:
         uow_factory: Callable[[], AbstractUnitOfWork],
         max_workers: int = 4,
     ):
-        # Service creates its own adapters with hardcoded config
+        
         self.face_detector = FaceDetector(
             insight_provider=face_provider,
             det_thresh=0.5,
@@ -42,13 +42,6 @@ class FrameProcessingService:
         )
         
         self.body_detector = BodyDetector(body_provider)
-        self.face_body_matcher = FaceBodyMatcher()
-        
-        self.face_recognizer = FaceRecognizer(
-            uow_factory=uow_factory,
-            provider=face_provider,
-            threshold=get_settings().face_recognition_threshold,
-        )
         
         self.bus = bus
         self.uow_factory = uow_factory
@@ -56,23 +49,23 @@ class FrameProcessingService:
 
     async def handle_frame_saved(self, event: FrameSaved) -> None:
         image_path = (
-            Path(get_settings().get_stream_path(event.collection_id))
-            / f"{event.camera_name}.jpg"
+            Path(get_settings().get_stream_path(event.frame.collection_id))
+            / f"{event.frame.camera_name}.jpg"
         )
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            self.executor, self.process_frame, event.frame_id, event.collection_id, str(image_path)
+            self.executor, self.process_frame, event.frame.id, event.frame.collection_id, str(image_path)
         )
 
-    def process_frame(self, frame_id: str, collection_id: str, image_path: str) -> None:
+    def process_frame(self, frame: Frame) -> None:
         try:
-            image = self._load_image(image_path)
+            image = self._load_image(frame.image_path)
             if image is None:
-                logger.error("Failed to load image %s", image_path)
+                logger.error("Failed to load image %s", frame.image_path)
                 return
 
-            faces, bodies = self._detect_objects(image, frame_id)
-            
+            faces, bodies = self._detect_objects(image, frame.id)
+
             # Store raw Face/Body objects (no visitor processing yet)
             with self.uow_factory() as uow:
                 for obj in (*faces, *bodies):
@@ -81,18 +74,14 @@ class FrameProcessingService:
 
             self.bus.handle(
                 FrameProcessed(
-                    frame_id=frame_id,
-                    collection_id=collection_id,
-                    faces_detected=len(faces),
-                    bodies_detected=len(bodies),
-                    analyzed_at=datetime.now(),
+                    frame=frame
                 )
             )
 
-            logger.info(f"Processed frame {frame_id} from collection {collection_id}: {len(faces)} faces, {len(bodies)} bodies")
-            
+            logger.info(f"Processed frame {frame.id} from collection {frame.collection_id}: {len(faces)} faces, {len(bodies)} bodies")
+
         except Exception as exc:
-            logger.exception("Error processing frame %s: %s", frame_id, exc)
+            logger.exception("Error processing frame %s: %s", frame.id, exc)
 
     def _load_image(self, image_path: str):
         img = cv2.imread(image_path)

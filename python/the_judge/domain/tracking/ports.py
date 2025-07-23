@@ -41,3 +41,14 @@ class FaceRecognizerPort(ABC):
     def recognize_faces(self, faces: List[Face]) -> Dict[str, Optional[dict]]:
         """Recognize faces against known faces database. Returns face_id -> visitor_record mapping."""
         pass
+
+
+class FaceMLProvider(ABC):
+    def get_face_detector(self) -> FaceDetectorPort:
+        pass
+    def get_face_recognizer(self) -> FaceRecognizerPort:
+        pass
+
+class BodyMLProvider(ABC):
+    def get_body_detector(self) -> BodyDetectorPort:
+        pass
