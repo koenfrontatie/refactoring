@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Any, Dict, Optional, Type, Tuple
 import numpy as np
-from the_judge.domain.tracking.model import Frame, Face, Body
+from the_judge.domain.tracking.model import Frame, Face, FaceEmbedding, Body, FaceComposite
 
 
 class FrameCollectorPort(ABC):
@@ -20,8 +20,8 @@ class FrameCollectorPort(ABC):
 
 class FaceDetectorPort(ABC):
     @abstractmethod
-    def detect_faces(self, image: np.ndarray, frame_id: str) -> List[Face]:
-        """Detect faces in image and return Face objects with embeddings."""
+    def detect_faces(self, image: np.ndarray, frame_id: str) -> List[FaceComposite]:
+        """Detect faces in image and return Composite objects."""
         pass
 
 class BodyDetectorPort(ABC):
@@ -32,14 +32,14 @@ class BodyDetectorPort(ABC):
 
 class FaceBodyMatcherPort(ABC):
     @abstractmethod
-    def match_faces_to_bodies(self, faces: List[Face], bodies: List[Body]) -> List[Tuple[Face, Optional[Body]]]:
+    def match_faces_to_bodies(self, faces: List[FaceComposite], bodies: List[Body]) -> List[FaceComposite]:
         """Match faces to bodies using geometric/spatial analysis. Returns face_id -> body_id mapping."""
         pass
 
 class FaceRecognizerPort(ABC):
     @abstractmethod
-    def recognize_faces(self, faces: List[Face]) -> Dict[str, Optional[dict]]:
-        """Recognize faces against known faces database. Returns face_id -> visitor_record mapping."""
+    def recognize_faces(self, faces: List[FaceComposite]) -> List[str]:
+        """Recognize faces against known embeddings in database. Returns list of visitor id or none."""
         pass
 
 

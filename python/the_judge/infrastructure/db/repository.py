@@ -22,6 +22,10 @@ class AbstractRepository(ABC):
         raise NotImplementedError
     
     @abstractmethod
+    def get_by(self, entity_class: Type, **filters) -> Optional[Any]:
+        raise NotImplementedError
+    
+    @abstractmethod
     def get_recent(self, entity_class: Type, limit: int) -> List[Any]: ...
     @abstractmethod
     def get_all_sorted(self, entity_class: Type, offset: int = 0) -> List[Any]: ...
@@ -48,6 +52,13 @@ class TrackingRepository:
     def list(self, entity_class: Type) -> List[Any]:
         return self.session.query(entity_class).all()
 
+    def get_by(self, entity_class: Type, **filters) -> Optional[Any]:
+        """Get first entity matching the given filters."""
+        return (
+            self.session.query(entity_class)
+            .filter_by(**filters)
+            .first()
+        )
 
     def get_recent(self, entity_class: Type, limit: int) -> List[Any]:
         col = self._order_col(entity_class)

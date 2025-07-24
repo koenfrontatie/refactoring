@@ -1,6 +1,7 @@
 from __future__ import annotations  
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from the_judge.common import datetime_utils
 from typing import Optional
 import numpy as np
 from enum import Enum
@@ -12,14 +13,12 @@ class Frame:
     captured_at: datetime
     collection_id: str
 
-# we will eventually separate embedding from face, so we can have a max stored embeddings per visitor entity
 @dataclass
 class Face:
     id: str
     frame_id: str
     bbox: tuple[int, int, int, int]
-    embedding: np.ndarray
-    normed_embedding: np.ndarray
+    embedding_id: str
     embedding_norm: float
     det_score: float
     quality_score: Optional[float]
@@ -29,6 +28,12 @@ class Face:
     captured_at: datetime
 
 @dataclass
+class FaceEmbedding:
+    id: str
+    embedding: np.ndarray
+    normed_embedding: np.ndarray
+
+@dataclass
 class Body:
     id: str
     frame_id: str
@@ -36,10 +41,17 @@ class Body:
     captured_at: datetime
 
 @dataclass
+class FaceComposite:
+    face: Face
+    embedding: FaceEmbedding
+    body: Optional[Body] = None
+
+@dataclass
 class Detection:
     id: str
     frame_id: str
-    face_id: Optional[str]
+    face_id: str
+    embedding_id: str
     body_id: Optional[str]
     visitor_record: dict
     captured_at: datetime
@@ -57,35 +69,13 @@ class Camera:
     captured_at: datetime
     created_at: datetime
 
-@dataclass
-class Visitor:
-    id: str
-    name: str
-    state: str
-    face_id: str
-    body_id: str
-    captured_at: datetime
-    created_at: datetime
 
-    def record(self) -> dict:
-        return {
-            'id': self.id,
-            'name': self.name,
-            'state': self.state,
-            'face_id': self.face_id,
-            'body_id': self.body_id,
-            'captured_at': self.captured_at,
-            'created_at': self.created_at
-        }
-
-
-'''
 @dataclass
 class VisitorState(Enum):
-    NEW = "new"
     TEMPORARY = "temporary"
-    PERMANENT = "permanent"
+    ACTIVE = "active"
     MISSING = "missing"
+    RETURNING = "returning"
 
 @dataclass
 class Visitor:
@@ -98,17 +88,18 @@ class Visitor:
     captured_at: datetime
     created_at: datetime
     
+
     @property
-    def time_since_capture(self) -> timedelta:
-        return datetime.now() - self.captured_at
+    def time_since_creation(self) -> timedelta:
+        return datetime_utils.now() - self.created_at
     
     @property
     def time_since_last_seen(self) -> timedelta:
-        return datetime.now() - self.last_seen
-    
+        return datetime_utils.now() - self.captured_at
+
     @property
     def is_missing(self) -> bool:
-        return self.time_since_last_seen > timedelta(minutes=5) 
+        return self.time_since_last_seen > timedelta(minutes=1) 
     
     @property
     def should_be_promoted(self) -> bool:
@@ -117,7 +108,7 @@ class Visitor:
     @property
     def should_be_removed(self) -> bool:
         return (self.state == VisitorState.TEMPORARY and 
-                self.time_since_last_seen > timedelta(minutes=2))
+                self.time_since_last_seen > timedelta(minutes=1))
     
     def record(self) -> dict:
         return {
@@ -126,9 +117,9 @@ class Visitor:
             'state': self.state,
             'face_id': self.face_id,
             'body_id': self.body_id,
+            'seen_count': self.seen_count,
             'captured_at': self.captured_at,
             'created_at': self.created_at
         }
 
 
-'''

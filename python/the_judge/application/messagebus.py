@@ -2,7 +2,7 @@ import asyncio
 import inspect
 from typing import Dict, List, Callable, Type
 
-from the_judge.domain.events import Event
+from the_judge.domain.tracking.events import Event
 from the_judge.common.logger import setup_logger
 
 logger = setup_logger("MessageBus")

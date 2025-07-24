@@ -3,24 +3,24 @@ from typing import List, Optional, Tuple
 from scipy.optimize import linear_sum_assignment
 
 from the_judge.domain.tracking.ports import FaceBodyMatcherPort
-from the_judge.domain.tracking.model import Face, Body
+from the_judge.domain.tracking.model import FaceComposite, Body
 from the_judge.common.logger import setup_logger
 
 logger = setup_logger('FaceBodyMatcher')
 
 class FaceBodyMatcher(FaceBodyMatcherPort):
     
-    def match_faces_to_bodies(self, faces: List[Face], bodies: List[Body]) -> List[Tuple[Face, Optional[Body]]]:
+    def match_faces_to_bodies(self, faces: List[FaceComposite], bodies: List[Body]) -> List[FaceComposite]:
         if not faces:
             return []
             
         if not bodies:
-            return [(face, None) for face in faces]
+            return faces
         
         cost_matrix = np.zeros((len(faces), len(bodies)))
         
-        for i, face in enumerate(faces):
-            fx1, fy1, fx2, fy2 = face.bbox
+        for i, face_composite in enumerate(faces):
+            fx1, fy1, fx2, fy2 = face_composite.face.bbox
             for j, body in enumerate(bodies):
                 bx1, by1, bx2, by2 = body.bbox
                 
@@ -79,17 +79,23 @@ class FaceBodyMatcher(FaceBodyMatcherPort):
             match_score = 1.0 - cost_matrix[f_idx, b_idx]
             if match_score >= 0.3:
                 face_to_body[f_idx] = b_idx
-                logger.debug(f"Face {faces[f_idx].id} matched to body {bodies[b_idx].id} with score {match_score:.3f}")
+                logger.debug(f"Face {faces[f_idx].face.id} matched to body {bodies[b_idx].id} with score {match_score:.3f}")
         
         result = []
         
-        for face in faces:
-            face_idx = faces.index(face)
+        for face_composite in faces:
+            face_idx = faces.index(face_composite)
             if face_idx in face_to_body:
                 body_idx = face_to_body[face_idx]
-                result.append((face, bodies[body_idx]))
+                matched_body = bodies[body_idx]
+                updated_composite = FaceComposite(
+                    face=face_composite.face,
+                    embedding=face_composite.embedding,
+                    body=matched_body
+                )
+                result.append(updated_composite)
             else:
-                result.append((face, None))
+                result.append(face_composite)
         
         matched_count = len(face_to_body)
         logger.info(f"Matched {matched_count} faces to bodies out of {len(faces)} faces")

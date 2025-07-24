@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from the_judge.infrastructure.tracking.providers import InsightFaceProvider
 from the_judge.domain.tracking.ports import FaceDetectorPort
-from the_judge.domain.tracking.model import Face
+from the_judge.domain.tracking.model import Face, FaceEmbedding, FaceComposite
 from the_judge.common.logger import setup_logger
 from the_judge.common.datetime_utils import now
 
@@ -31,33 +31,43 @@ class FaceDetector(FaceDetectorPort):
         self.max_yaw = max_yaw
         self.max_pitch = max_pitch
 
-    def detect_faces(self, image: np.ndarray, frame_id: str) -> List[Face]:
-        faces_out: List[Face] = []
-        now = now()
+    def detect_faces(self, image: np.ndarray, frame_id: str) -> List[FaceComposite]:
+        composites: List[FaceComposite] = []
+        current_time = now()
 
         for raw in self.app.get(image):  
             if not self._quality(raw):
                 continue
 
             x1, y1, x2, y2 = raw.bbox.astype(int).tolist()
-            faces_out.append(
-                Face(
-                    id=str(uuid.uuid4()),
-                    frame_id=frame_id,
-                    bbox=(x1, y1, x2, y2),
-                    embedding=raw.embedding,
-                    normed_embedding=raw.normed_embedding,
-                    embedding_norm=float(raw.embedding_norm),
-                    det_score=float(raw.det_score),
-                    quality_score=self._quality_score(raw),
-                    pose=f"{raw.pose[0]:.1f},{raw.pose[1]:.1f},{raw.pose[2]:.1f}",
-                    age=int(getattr(raw, "age", 0)) or None,
-                    sex="M" if getattr(raw, "gender", -1) == 1 else "F",
-                    captured_at=now,
-                )
+            
+            # Create FaceEmbedding first
+            face_embedding = FaceEmbedding(
+                id=str(uuid.uuid4()),
+                embedding=raw.embedding,
+                normed_embedding=raw.normed_embedding
+            )
+            
+            # Create Face with reference to embedding
+            face = Face(
+                id=str(uuid.uuid4()),
+                frame_id=frame_id,
+                bbox=(x1, y1, x2, y2),
+                embedding_id=face_embedding.id,
+                embedding_norm=float(raw.embedding_norm),
+                det_score=float(raw.det_score),
+                quality_score=self._quality_score(raw),
+                pose=f"{raw.pose[0]:.1f},{raw.pose[1]:.1f},{raw.pose[2]:.1f}",
+                age=int(getattr(raw, "age", 0)) or None,
+                sex="M" if getattr(raw, "gender", -1) == 1 else "F",
+                captured_at=current_time,
             )
 
-        return faces_out
+            composite = FaceComposite(face=face, embedding=face_embedding)
+
+            composites.append(composite)
+
+        return composites
 
     def _quality(self, f) -> bool:
         if getattr(f, "det_score", 0.0) < self.det_thresh:

@@ -5,7 +5,7 @@ from the_judge.settings import get_settings
 from the_judge.infrastructure.db.engine import initialize_database
 from the_judge.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
-from the_judge.infrastructure.tracking.frame_collector import FrameCollector
+from the_judge.infrastructure import FaceBodyMatcher, FrameCollector
 from the_judge.application.processing_service import FrameProcessingService
 from the_judge.application.tracking_service import TrackingService
 from the_judge.application.messagebus import MessageBus
@@ -30,28 +30,31 @@ def create_app() -> App:
 
     face_provider = InsightFaceProvider()
     body_provider = YOLOProvider()
-    
+    face_body_matcher = FaceBodyMatcher()
+
     bus = MessageBus()
     uow_factory = SqlAlchemyUnitOfWork
     
+    tracking_service = TrackingService(
+        face_provider=face_provider,
+        face_body_matcher=face_body_matcher,
+        uow_factory=uow_factory,
+        bus=bus
+    )
+
     processing_service = FrameProcessingService(
         face_provider=face_provider,
         body_provider=body_provider,
+        tracking_service=tracking_service,
         bus=bus,
         uow_factory=uow_factory
     )
     
-    tracking_service = TrackingService(
-        face_provider=face_provider,
-        uow_factory=uow_factory,
-        bus=bus
-    )
 
     frame_collector = FrameCollector(
         bus=bus, 
         uow_factory=uow_factory
     )
-    
     
     # Wire up the message bus
     bus.subscribe(FrameSaved, processing_service.on_frame_saved)
