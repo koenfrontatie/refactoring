@@ -85,7 +85,7 @@ class Visitor:
     state: VisitorState
     face_id: str
     body_id: str
-    seen_count: int = 0
+    seen_count: int
     captured_at: datetime
     created_at: datetime
     
