@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from the_judge.infrastructure.tracking.providers import InsightFaceProvider
 from the_judge.domain.tracking.ports import FaceDetectorPort
-from the_judge.domain.tracking.model import Face, FaceEmbedding, FaceComposite
+from the_judge.domain.tracking.model import Face, FaceEmbedding, Composite
 from the_judge.common.logger import setup_logger
 from the_judge.common.datetime_utils import now
 
@@ -31,8 +31,8 @@ class FaceDetector(FaceDetectorPort):
         self.max_yaw = max_yaw
         self.max_pitch = max_pitch
 
-    def detect_faces(self, image: np.ndarray, frame_id: str) -> List[FaceComposite]:
-        composites: List[FaceComposite] = []
+    def detect_faces(self, image: np.ndarray, frame_id: str) -> List[Composite]:
+        composites: List[Composite] = []
         current_time = now()
 
         for raw in self.app.get(image):  
@@ -63,7 +63,7 @@ class FaceDetector(FaceDetectorPort):
                 captured_at=current_time,
             )
 
-            composite = FaceComposite(face=face, embedding=face_embedding)
+            composite = Composite(face=face, embedding=face_embedding)
 
             composites.append(composite)
 

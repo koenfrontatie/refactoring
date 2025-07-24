@@ -1,16 +1,19 @@
 import asyncio
-from typing import List, Optional, Tuple, Callable
+from typing import List, Optional, Tuple, Callable, Dict
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from sympy import composite
+
 from the_judge.domain.tracking import FaceMLProvider
-from the_judge.domain.tracking import Frame, Detection, Face, Body, FaceEmbedding, FaceComposite
+from the_judge.domain.tracking.model import Frame, Detection, Face, Body, FaceEmbedding, Composite, Visitor, VisitorState
 from the_judge.domain.tracking import FaceBodyMatcherPort, FaceRecognizerPort
 from the_judge.infrastructure import FaceBodyMatcher
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.application.messagebus import MessageBus
 from the_judge.domain.tracking.events import FrameProcessed
 from the_judge.common.logger import setup_logger
+import uuid
 from the_judge.common.datetime_utils import now
 from the_judge.settings import get_settings
 logger = setup_logger("TrackingService")
@@ -19,18 +22,20 @@ logger = setup_logger("TrackingService")
 class CollectionBuffer:
     # this buffer resets / clears when a new collection id is detected in incoming frames
     collection_id: str
-    frames: set[Frame] = field(default_factory=set)
-    detections: set[Detection] = field(default_factory=set)
+    composites_in_collection: List[Composite] = field(default_factory=list)
 
-    def add_frame(self, frame: Frame):
-        self.frames.add(frame)
-
-    def add_detection(self, detection: Detection):
-        self.detections.add(detection)
+    def add_composite(self, composite: Composite):
+        self.composites_in_collection.append(composite)
+    
+    def has_visitor(self, visitor_id: str) -> bool:
+        return any(comp.visitor and comp.visitor.id == visitor_id 
+                  for comp in self.composites_in_collection)
+    
+    def get_composites_for_recognition(self) -> List[Composite]:
+        return self.composites_in_collection
 
     def clear(self):
-        self.frames.clear()
-        self.detections.clear()
+        self.composites_in_collection.clear()
 
 class TrackingService:
     def __init__(
@@ -47,97 +52,104 @@ class TrackingService:
 
         self.cached_collection: Optional[CollectionBuffer] = None
 
-    async def handle_frame(self, uow: AbstractUnitOfWork, frame: Frame, face_composites: List[FaceComposite], bodies: List[Body]) -> None:
+    async def handle_frame(self, uow: AbstractUnitOfWork, frame: Frame, composites: List[Composite], bodies: List[Body]) -> None:
         if self.cached_collection is None or self.cached_collection.collection_id != frame.collection_id:
-            self.cached_collection.clear()
+            if self.cached_collection:
+                self.cached_collection.clear()
             self.cached_collection = CollectionBuffer(frame.collection_id)
 
-        self.cached_collection.add_frame(frame)
+        # Step 1: Match faces to bodies
+        matched_composites = self.face_body_matcher.match_faces_to_bodies(composites, bodies)
 
-        facebodies = self.face_body_matcher.match_faces_to_bodies(face_composites, bodies)
-        
-        matched_ids = self.face_recognizer.recognize_faces(face_composites)  
-        
-        for composite, visitor_id in zip(face_composites, matched_ids):
+        # Step 2: Recognize faces against database (returns composites with visitor field populated)
+        recognized_composites = self.face_recognizer.recognize_faces(matched_composites)
+
+        # Step 3: Process each composite - update existing visitors or create new ones
+        for composite in recognized_composites:
+            visitor = None
+            
+            if composite.visitor:
+                # Matched visitor found in database
+                existing_visitor = composite.visitor
+                
+                # Check if we've already processed this visitor in current collection
+                if not self.cached_collection.has_visitor(existing_visitor.id):
+                    existing_visitor.seen_count += 1
+                    existing_visitor.captured_at = now()
+                    
+                    # Update state based on business rules
+                    if existing_visitor.should_be_promoted:
+                        existing_visitor.state = VisitorState.ACTIVE
+                    elif existing_visitor.is_missing:
+                        existing_visitor.state = VisitorState.MISSING
+                    
+                    # Add to collection buffer to track we've seen them
+                    composite.visitor = existing_visitor
+                    self.cached_collection.add_composite(composite)
+                    
+                    # Update visitor in database
+                    uow.repository.add(existing_visitor)
+                else:
+                    existing_visitor.captured_at = now()
+                    uow.repository.add(existing_visitor)
+                
+                visitor = existing_visitor
+            else:
+                # No match found in database - check against visitors created in this collection
+                visitor = await self._find_or_create_collection_visitor(composite, uow)
+            
+            # Step 4: Create detection for this visitor
             detection = Detection(
+                id=str(uuid.uuid4()),
                 frame_id=frame.id,
                 face_id=composite.face.id,
-                body_id=None,  # Assuming no body is associated here
-                visitor_record={"visitor_id": visitor_id} if visitor_id else None,
-                captured_at=datetime.now()
-            )
-            self.cached_collection.add_detection(detection)
-
-        pass
-
-
-    async def handle_frame_processed(self, event: FrameProcessed):        
-        # Check if this is a new collection
-        if self.cached_collection is None or self.cached_collection.collection_id != event.frame.collection_id:
-            self.cached_collection.clear()
-            self.cached_collection = CollectionBuffer(event.frame.collection_id)
-
-        self.cached_collection.add_frame(event.frame)  
-
-        #facebodies = self.face_body_matcher.match_faces_to_bodies(event.faces, event.bodies)
-
-        self.face_recognizer.recognize_faces([face for face,_ in facebodies])
-
-
-        # returns Dict[face_id → visitor / None]  :contentReference[oaicite:2]{index=2}
-        # we need to create detections for these composites, but detections should be created only after recognition
-        # we need to either identify composites to a visitor id or create a new visitor / visitor record
-        matches_after_identification = self.perform_detection(facebodies) 
-        # for me it would make sense for recognition to search through detections (-> which reference face_id) and return the latest detection recorded if the face matches
-
-        with self.uow_factory() as uow:
-            # Get the face recognizer
-            # Perform recognition
-            result = await self.face_recognizer.recognize(event.faces) #faces: List[Face])
-            # Handle the result
-            await self.handle_recognition_result(result)
-    
-    '''
-    id: str
-    frame_id: str
-    face_id: Optional[str]
-    body_id: Optional[str]
-    visitor_record: dict
-    captured_at: datetime
-
-
-            for face, body in matches:
-            detection = Detection(
-                frame_id=event.frame.id,
-                face_id=face.id,
-                body_id=body.id,
-                visitor_record= None,
+                embedding_id=composite.embedding.id,
+                body_id=composite.body.id if composite.body else None,
+                visitor_record=visitor.record(),
                 captured_at=now()
             )
-            self.current_collection.add_detection(detection)
-    '''
-    async def perform_detection(self, faces: List[Tuple[Face, Optional[Body]]]) -> List[Tuple[Face, Optional[Body], Optional[str]]]:
-        if not faces:
-            logger.warning("No faces to recognize")
-            return []
+            
+            uow.repository.add(detection)
 
-        results = self.face_recognizer.recognize_faces(faces)
-        # recognize faces should return 
-        with self.uow_factory() as uow:
-            for face_id, result in results.items():
-                if result is None:
-                    continue
-                # Create detection or update existing one
-                detection = Detection(
-                    id=result['id'],
-                    frame_id=result['frame_id'],
-                    face_id=face_id,
-                    body_id=result.get('body_id'),
-                    visitor_record=result.get('visitor_record', {}),
-                    captured_at=now()
-                )
-                uow.repository.add(detection)
-            uow.commit()
+    async def _find_or_create_collection_visitor(self, composite: Composite, uow: AbstractUnitOfWork) -> Visitor:
+        """Find existing visitor in collection or create new one using face recognition."""
+        collection_composites = self.cached_collection.get_composites_for_recognition()
         
-        # Notify the bus about the processed frame
-        self.bus.handle(FrameProcessed(frame=faces[0], faces=faces))
+        if collection_composites:
+            # Use face recognizer to check if current composite matches any collection visitors
+            # No database queries needed - we already have complete composites!
+            test_composites = [composite] + collection_composites
+            recognized_composites = self.face_recognizer.recognize_faces(test_composites)
+            
+            # Check if the first composite (our current one) got matched to a collection visitor
+            if recognized_composites[0].visitor:
+                matched_visitor = recognized_composites[0].visitor
+                # Make sure the matched visitor is actually from our collection
+                if self.cached_collection.has_visitor(matched_visitor.id):
+                    # Update the existing collection visitor
+                    matched_visitor.captured_at = now()
+                    uow.repository.add(matched_visitor)
+                    return matched_visitor
+        
+        # No match found in collection - create new visitor
+        new_visitor = Visitor(
+            id=str(uuid.uuid4()),
+            name=f"Visitor_{str(uuid.uuid4())[:8]}",
+            state=VisitorState.TEMPORARY,
+            face_id=composite.face.id,
+            body_id=composite.body.id if composite.body else None,
+            seen_count=1,
+            captured_at=now(),
+            created_at=now()
+        )
+        
+        # Create composite with new visitor and add to collection buffer
+        composite.visitor = new_visitor
+        self.cached_collection.add_composite(composite)
+        
+        # Add new visitor to database
+        uow.repository.add(new_visitor)
+        return new_visitor
+
+
+    

@@ -3,14 +3,14 @@ from typing import List, Optional, Tuple
 from scipy.optimize import linear_sum_assignment
 
 from the_judge.domain.tracking.ports import FaceBodyMatcherPort
-from the_judge.domain.tracking.model import FaceComposite, Body
+from the_judge.domain.tracking.model import Composite, Body
 from the_judge.common.logger import setup_logger
 
 logger = setup_logger('FaceBodyMatcher')
 
 class FaceBodyMatcher(FaceBodyMatcherPort):
     
-    def match_faces_to_bodies(self, faces: List[FaceComposite], bodies: List[Body]) -> List[FaceComposite]:
+    def match_faces_to_bodies(self, faces: List[Composite], bodies: List[Body]) -> List[Composite]:
         if not faces:
             return []
             
@@ -88,7 +88,7 @@ class FaceBodyMatcher(FaceBodyMatcherPort):
             if face_idx in face_to_body:
                 body_idx = face_to_body[face_idx]
                 matched_body = bodies[body_idx]
-                updated_composite = FaceComposite(
+                updated_composite = Composite(
                     face=face_composite.face,
                     embedding=face_composite.embedding,
                     body=matched_body

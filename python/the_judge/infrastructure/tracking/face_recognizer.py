@@ -6,7 +6,7 @@ from typing import Callable, List, Optional
 import numpy as np
 
 from the_judge.common.logger import setup_logger
-from the_judge.domain.tracking import FaceEmbedding, FaceComposite, Detection
+from the_judge.domain.tracking.model import FaceEmbedding, Composite, Detection, Visitor
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 
@@ -26,8 +26,8 @@ class FaceRecognizer(FaceRecognizerPort):
         self.provider = provider
         self.threshold = threshold
 
-    def recognize_faces(self, faces: List[FaceComposite]) -> List[Optional[str]]:
-        """Recognize faces against known embeddings in database. Returns list of visitor id or none."""
+    def recognize_faces(self, faces: List[Composite]) -> List[Composite]:
+        """Recognize faces against known embeddings in database. Returns FaceComposite objects with matched visitors attached."""
         if not faces:
             return []
 
@@ -38,21 +38,27 @@ class FaceRecognizer(FaceRecognizerPort):
             all_embeddings = uow.repository.list(FaceEmbedding)
 
             for face_composite in faces:
-                visitor_name = self._find_visitor_id(face_composite, all_embeddings, uow)
-                results.append(visitor_name)
+                visitor = self._find_visitor(face_composite, all_embeddings, uow)
+                updated_composite = Composite(
+                    face=face_composite.face,
+                    embedding=face_composite.embedding,
+                    body=face_composite.body,
+                    visitor=visitor
+                )
+                results.append(updated_composite)
 
         return results
 
-    def _find_visitor_id(
+    def _find_visitor(
         self, 
-        query_composite: FaceComposite, 
+        query_composite: Composite, 
         gallery_embeddings: List[FaceEmbedding],
         uow: AbstractUnitOfWork
-    ) -> Optional[str]:
+    ) -> Optional[Visitor]:
         """
         1. Search for matching embedding in repository
         2. If found, search detection table with that embedding_id 
-        3. Return visitor_name from detection, or None
+        3. Get visitor_id from detection and return full Visitor object
         """
         if not self._valid_composite(query_composite):
             return None
@@ -63,18 +69,22 @@ class FaceRecognizer(FaceRecognizerPort):
         if not best_embedding:
             return None
 
-        # Step 2: Get detection by embedding_id (much more efficient!)
+        # Step 2: Get detection by embedding_id
         detection = uow.repository.get_by(Detection, embedding_id=best_embedding.id)
         
         if detection:
-            return detection.visitor_record.get('id')
+            visitor_id = detection.visitor_record.get('id')
+            if visitor_id:
+                # Step 3: Get full Visitor object
+                visitor = uow.repository.get(Visitor, visitor_id)
+                return visitor
 
-        # No detection found with this embedding
+        # No detection found with this embedding or no visitor found
         return None
     
     def _find_best_matching_embedding(
         self, 
-        query_composite: FaceComposite, 
+        query_composite: Composite, 
         gallery_embeddings: List[FaceEmbedding]
     ) -> Optional[FaceEmbedding]:
         """Find the best matching embedding in the gallery."""
@@ -91,7 +101,7 @@ class FaceRecognizer(FaceRecognizerPort):
 
         return best_embedding
 
-    def _valid_composite(self, fc: FaceComposite) -> bool:
+    def _valid_composite(self, fc: Composite) -> bool:
         return (fc.embedding.normed_embedding is not None and 
                 (fc.face.quality_score or 0) > 0.5)
 

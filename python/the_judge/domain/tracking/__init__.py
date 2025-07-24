@@ -1,7 +1,7 @@
 from .ports import BodyDetectorPort, FaceBodyMatcherPort, FaceDetectorPort, FaceRecognizerPort, FrameCollectorPort, FaceMLProvider, BodyMLProvider
 from .commands import RegisterCameraCommand, UnregisterCameraCommand, SaveFrameCommand, ProcessFrameCommand
 from .events import FrameSaved, FrameProcessed
-from .model import Frame, Face, Body, Detection, Collection, Camera, Visitor, FaceEmbedding, FaceComposite
+from .model import Frame, Face, Body, Detection, Collection, Camera, Visitor, FaceEmbedding, Composite
 
 __all__ = [
     'BodyDetectorPort',
@@ -28,7 +28,7 @@ __all__ = [
     'Camera',
     'Visitor',
     'FaceEmbedding',
-    'FaceComposite'
+    'Composite'
 ]
 
 

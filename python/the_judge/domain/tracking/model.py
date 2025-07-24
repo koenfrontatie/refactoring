@@ -40,11 +40,6 @@ class Body:
     bbox: tuple[int, int, int, int]
     captured_at: datetime
 
-@dataclass
-class FaceComposite:
-    face: Face
-    embedding: FaceEmbedding
-    body: Optional[Body] = None
 
 @dataclass
 class Detection:
@@ -69,6 +64,12 @@ class Camera:
     captured_at: datetime
     created_at: datetime
 
+@dataclass
+class Composite:
+    face: Face
+    embedding: FaceEmbedding
+    body: Optional[Body] = None
+    visitor: Optional[Visitor] = None
 
 @dataclass
 class VisitorState(Enum):

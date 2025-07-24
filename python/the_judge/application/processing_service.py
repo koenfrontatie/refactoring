@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, List
 from pathlib import Path
 
-from the_judge.domain.tracking import Frame, Face, Body, Visitor, FaceComposite, FaceMLProvider, BodyMLProvider, FrameProcessed, FrameSaved
+from the_judge.domain.tracking import Frame, Face, Body, Visitor, Composite, FaceMLProvider, BodyMLProvider, FrameProcessed, FrameSaved
 from the_judge.application.messagebus import MessageBus
 from the_judge.application.tracking_service import TrackingService
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
@@ -83,7 +83,7 @@ class FrameProcessingService:
         img = cv2.imread(image_path)
         return None if img is None else cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    def _detect_objects(self, image: np.ndarray, frame_id: str) -> tuple[list[FaceComposite], list[Body]]:
+    def _detect_objects(self, image: np.ndarray, frame_id: str) -> tuple[list[Composite], list[Body]]:
         face_detector = self.face_provider.get_face_detector()
         body_detector = self.body_provider.get_body_detector()
         
