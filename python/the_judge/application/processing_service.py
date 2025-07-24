@@ -55,15 +55,7 @@ class FrameProcessingService:
             composites, bodies = self._detect_objects(image, frame.id)
 
             with self.uow_factory() as uow:
-                for composite in composites:
-                    uow.repository.add(composite.embedding)  # Save embedding first
-                    uow.repository.add(composite.face)       # Then face (which references embedding)
-
-                for body in bodies:
-                    uow.repository.add(body)
-
-                #await self.tracking_service.handle_frame(uow, frame, composites, bodies)
-
+                self.tracking_service.handle_frame(uow, frame, composites, bodies)
                 uow.commit()
 
             # self.bus.handle(
