@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 import asyncio
-import argparse
-import base64
 import cv2
 import socketio
 import socket
 import platform
+from camera import Camera
 
-# Configuration
-SERVER_HOSTNAME = ""            # Empty string means use localhost
-DEFAULT_SERVER_PORT = 8081      # Default socket port
+SERVER_HOSTNAME = ""            
+DEFAULT_SERVER_PORT = 8081      
 
 class CameraClient:
     def __init__(self):
@@ -32,34 +30,20 @@ class CameraClient:
         async def camera_collect_frame(payload):
             await self._on_collect(payload)
 
-    def open(self) -> None:
+    def open(self) -> bool:
         try:
-            # Try to initialize with DirectShow backend first (Windows)
-            self.camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-            # If that fails, try the default backend
-            if not self.camera.isOpened():
-                self.camera = cv2.VideoCapture(0)
-            if not self.camera.isOpened():
-                print("Failed to open camera with any backend")
-                return False
-                
-            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-
+            self.camera = Camera(device=0, width=1920, height=1080)
+            self.camera.start()
             print(f"Camera initialized")
             return True
-            
+        except RuntimeError as e:
+            print(f"Failed to open camera: {e}")
+            return False
         except Exception as e:
             print(f"Error initializing camera: {e}")
             return False
-    
 
     def read(self) -> bytes:
-        for _ in range(2):  # Clear buffer
-            ret, _ = self.camera.read()
-            if not ret:
-                break
-        
         ret, frame = self.camera.read()
         if not ret:
             raise RuntimeError(f"Failed to read from {self.device_id}")
@@ -68,7 +52,8 @@ class CameraClient:
         return buf.tobytes()
 
     def close(self) -> None:
-        self.camera.release()
+        if self.camera:
+            self.camera.stop()
 
     async def _register(self):
         await self.sio.emit('camera.register', {
@@ -117,7 +102,7 @@ class CameraClient:
             print(f"Connecting to {self.server_url}...")
             await self.sio.connect(self.server_url)
             print("Connected successfully")
-            await self.sio.wait()   # blocks until socket disconnect
+            await self.sio.wait()
         except KeyboardInterrupt:
             print("Interrupted by user")
         except Exception as e:
