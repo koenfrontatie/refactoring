@@ -14,8 +14,8 @@ class Settings(BaseModel):
     capture_interval: float = Field(default=10.0, env="CAPTURE_INTERVAL")
     
     # Detection settings
-    face_detection_threshold: float = Field(default=0.6, env="FACE_DETECTION_THRESHOLD")
-    face_recognition_threshold: float = Field(default=0.4, env="FACE_RECOGNITION_THRESHOLD")
+    face_detection_threshold: float = Field(default=0.5, env="FACE_DETECTION_THRESHOLD")
+    face_recognition_threshold: float = Field(default=0.5, env="FACE_RECOGNITION_THRESHOLD")
     model_path: Path = Field(default_factory=lambda: Path(__file__).parent / "infrastructure" / "models", env="MODEL_PATH")
     
     # Storage paths

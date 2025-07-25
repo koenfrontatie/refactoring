@@ -5,11 +5,12 @@ from the_judge.settings import get_settings
 from the_judge.infrastructure.db.engine import initialize_database
 from the_judge.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from the_judge.infrastructure.tracking.providers import InsightFaceProvider, YOLOProvider
-from the_judge.infrastructure import FaceBodyMatcher, FrameCollector
+from the_judge.infrastructure.tracking.face_body_matcher import FaceBodyMatcher
+from the_judge.infrastructure.tracking.frame_collector import FrameCollector
 from the_judge.application.processing_service import FrameProcessingService
 from the_judge.application.tracking_service import TrackingService
 from the_judge.application.messagebus import MessageBus
-from the_judge.domain.tracking import FrameSaved, FrameProcessed
+from the_judge.domain.tracking.events import FrameSaved, FrameProcessed
 from the_judge.entrypoints.socket_client import SocketIOClient
 
 

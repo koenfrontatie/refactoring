@@ -1,17 +1,18 @@
-import asyncio
 from typing import List, Optional, Tuple, Callable, Dict
 from dataclasses import dataclass, field
 from datetime import datetime
+import asyncio
 from randomname import get_name
-from the_judge.domain.tracking import FaceMLProvider
+import uuid
+
+from the_judge.domain.tracking.ports import FaceMLProvider, FaceBodyMatcherPort, FaceRecognizerPort
 from the_judge.domain.tracking.model import Frame, Detection, Face, Body, FaceEmbedding, Composite, Visitor, VisitorState
-from the_judge.domain.tracking import FaceBodyMatcherPort, FaceRecognizerPort
-from the_judge.infrastructure import FaceBodyMatcher
+
+from the_judge.infrastructure.tracking.face_body_matcher import FaceBodyMatcher
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.application.messagebus import MessageBus
 from the_judge.domain.tracking.events import FrameProcessed
 from the_judge.common.logger import setup_logger
-import uuid
 from the_judge.common.datetime_utils import now
 from the_judge.settings import get_settings
 logger = setup_logger("TrackingService")
@@ -101,7 +102,7 @@ class TrackingService:
 
             uow.repository.add(detection)
 
-    async def _find_in_collection_or_create_visitor(self, composite: Composite, uow: AbstractUnitOfWork) -> Visitor:
+    def _find_in_collection_or_create_visitor(self, composite: Composite, uow: AbstractUnitOfWork) -> Visitor:
         collection_composites = self.cached_collection.get_composites()
         
         if collection_composites:

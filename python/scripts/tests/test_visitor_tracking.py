@@ -187,8 +187,8 @@ def test_visitor_promotion_after_threshold():
     # Assert
     updated_visitor = next(v for v in uow.repository.visitors_added if v.id == "visitor-123")
     assert updated_visitor.seen_count == 3
-    assert updated_visitor.state == VisitorState.PERMANENT
-    print("✓ Visitor promoted to PERMANENT successfully")
+    assert updated_visitor.state == VisitorState.ACTIVE
+    print("✓ Visitor promoted to ACTIVE successfully")
 
 
 def test_collection_scoped_seen_count():

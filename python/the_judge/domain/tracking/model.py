@@ -71,7 +71,6 @@ class Composite:
     body: Optional[Body] = None
     visitor: Optional[Visitor] = None
 
-@dataclass
 class VisitorState(Enum):
     TEMPORARY = "temporary"
     ACTIVE = "active"

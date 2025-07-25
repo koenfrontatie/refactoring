@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Any, Dict, Optional, Type, Tuple
 import numpy as np
-from the_judge.domain.tracking.model import Frame, Face, FaceEmbedding, Body, Composite, Visitor
+from .model import Frame, Face, FaceEmbedding, Body, Composite, Visitor
 
 
 class FrameCollectorPort(ABC):

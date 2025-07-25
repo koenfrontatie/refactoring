@@ -4,9 +4,10 @@ from ultralytics import YOLO
 from the_judge.settings import get_settings
 from the_judge.common.logger import setup_logger
 from the_judge.domain.tracking.ports import FaceMLProvider, BodyMLProvider, FaceDetectorPort, FaceRecognizerPort, BodyDetectorPort
-from the_judge.infrastructure.tracking.face_detector import InsightFaceDetector
-from the_judge.infrastructure.tracking.face_recognizer import InsightFaceRecognizer
-from the_judge.infrastructure import BodyDetector, FaceDetector, FaceRecognizer
+
+from .body_detector import BodyDetector
+from .face_detector import FaceDetector
+from .face_recognizer import FaceRecognizer
 
 logger = setup_logger("Providers")
 

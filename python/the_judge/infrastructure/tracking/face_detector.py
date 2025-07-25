@@ -4,32 +4,28 @@ from typing import List, Callable, Tuple
 
 import cv2
 import numpy as np
-from the_judge.infrastructure.tracking.providers import InsightFaceProvider
-from the_judge.domain.tracking.ports import FaceDetectorPort
+
+from the_judge.domain.tracking.ports import FaceDetectorPort, FaceMLProvider
 from the_judge.domain.tracking.model import Face, FaceEmbedding, Composite
 from the_judge.common.logger import setup_logger
 from the_judge.common.datetime_utils import now
-
+from the_judge.settings import get_settings
 logger = setup_logger("FaceDetector")
 
 
 class FaceDetector(FaceDetectorPort):
     def __init__(                       # only this block modified
         self,
-        insight_provider,                # expects provider instance
+        insight_provider: FaceMLProvider,  # expects provider instance
         *,
-        det_thresh: float,
-        min_area: int,
-        min_norm: float,
-        max_yaw: float,
-        max_pitch: float,
+        det_thresh: float = 0.5,
+        min_area: int = 2500,
+        min_norm: float = 15,
     ):
-        self.app = insight_provider.app  # store raw FaceAnalysis object
+        self.app = insight_provider  # store raw FaceAnalysis object
         self.det_thresh = det_thresh
         self.min_area = min_area
         self.min_norm = min_norm
-        self.max_yaw = max_yaw
-        self.max_pitch = max_pitch
 
     def detect_faces(self, image: np.ndarray, frame_id: str) -> List[Composite]:
         composites: List[Composite] = []
@@ -78,10 +74,6 @@ class FaceDetector(FaceDetectorPort):
             return False
 
         if getattr(f, "embedding_norm", 0.0) < self.min_norm:
-            return False
-
-        yaw, pitch, _ = getattr(f, "pose", (0.0, 0.0, 0.0))
-        if abs(yaw) > self.max_yaw or abs(pitch) > self.max_pitch:
             return False
 
         return True

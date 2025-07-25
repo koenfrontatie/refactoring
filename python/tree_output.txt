@@ -1,4 +1,4 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 22-07-25 14:22:54.60
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 25-07-25 17:24:49.44
 ============================================================
 python
 |   .env
@@ -8,28 +8,34 @@ python
 |   requirements.txt
 |   startvenv.bat
 +--- scripts
+|   |   run_tests.py
 |   |   socket_test_gui.py
 |   |   start_gui.bat
 |   |   __init__.py
+|   +--- tests
+|   |   |   test_collection_buffer.py
+|   |   |   test_visitor_domain.py
+|   |   |   test_visitor_tracking.py
+|   |   |   __init__.py
 +--- the_judge
 |   |   .gitignore
 |   |   container.py
-|   |   main.py
 |   |   settings.py
-|   |   __init__.py
+|   |   __main__.py
 |   +--- application
 |   |   |   messagebus.py
 |   |   |   processing_service.py
+|   |   |   tracking_service.py
 |   |   |   __init__.py
 |   +--- common
 |   |   |   datetime_utils.py
 |   |   |   logger.py
 |   |   |   __init__.py
 |   +--- domain
-|   |   |   events.py
 |   |   |   __init__.py
 |   |   +--- tracking
 |   |   |   |   commands.py
+|   |   |   |   events.py
 |   |   |   |   model.py
 |   |   |   |   ports.py
 |   |   |   |   __init__.py
@@ -53,7 +59,16 @@ python
 |   |   |   |   __init__.py
 |   |   +--- models
 |   |   |   +--- insightface
+|   |   |   |   +--- models
+|   |   |   |   |   |   buffalo_l.zip
+|   |   |   |   |   +--- buffalo_l
+|   |   |   |   |   |   |   1k3d68.onnx
+|   |   |   |   |   |   |   2d106det.onnx
+|   |   |   |   |   |   |   det_10g.onnx
+|   |   |   |   |   |   |   genderage.onnx
+|   |   |   |   |   |   |   w600k_r50.onnx
 |   |   |   +--- yolo
+|   |   |   |   |   yolov8n.pt
 |   |   +--- tracking
 |   |   |   |   body_detector.py
 |   |   |   |   face_body_matcher.py
@@ -61,4 +76,5 @@ python
 |   |   |   |   face_recognizer.py
 |   |   |   |   frame_collector.py
 |   |   |   |   providers.py
+|   |   |   |   __init__.py
 |   |   |   +--- models

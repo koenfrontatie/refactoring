@@ -20,7 +20,7 @@ class FaceRecognizer(FaceRecognizerPort):
         *,
         uow_factory: Callable[[], AbstractUnitOfWork],
         provider,  # InsightFaceProvider instance
-        threshold: float,
+        threshold: float = 0.5,
     ) -> None:
         self.uow_factory = uow_factory
         self.provider = provider

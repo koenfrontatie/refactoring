@@ -7,7 +7,9 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, List
 from pathlib import Path
 
-from the_judge.domain.tracking import Frame, Face, Body, Visitor, Composite, FaceMLProvider, BodyMLProvider, FrameProcessed, FrameSaved
+from the_judge.domain.tracking.model import Frame, Face, Body, Visitor, Composite
+from the_judge.domain.tracking.ports import FaceMLProvider, BodyMLProvider
+from the_judge.domain.tracking.events import FrameProcessed, FrameSaved
 from the_judge.application.messagebus import MessageBus
 from the_judge.application.tracking_service import TrackingService
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
@@ -66,7 +68,7 @@ class FrameProcessingService:
             #     )
             # )
 
-            logger.info("Processed frame %s from collection %s: %d faces, %d bodies", frame.id, frame.collection_id, len(faces_and_embeddings), len(bodies))
+            logger.info("Processed frame %s from collection %s: %d faces, %d bodies", frame.id, frame.collection_id, len(composites), len(bodies))
 
         except Exception as exc:
             logger.exception("Error processing frame %s", frame.id)

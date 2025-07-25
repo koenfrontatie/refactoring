@@ -67,7 +67,7 @@ def test_visitor_business_rules():
     permanent_visitor = Visitor(
         id=str(uuid.uuid4()),
         name="Permanent Visitor",
-        state=VisitorState.PERMANENT,
+        state=VisitorState.ACTIVE,
         face_id="face-3",
         body_id=None,
         seen_count=5,
