@@ -8,7 +8,7 @@ from typing import Callable, List
 from pathlib import Path
 
 from the_judge.domain.tracking.model import Frame, Face, Body, Visitor, Composite
-from the_judge.domain.tracking.ports import FaceMLProvider, BodyMLProvider
+from the_judge.domain.tracking.ports import FaceDetectorPort, BodyDetectorPort
 from the_judge.domain.tracking.events import FrameProcessed, FrameSaved
 from the_judge.application.messagebus import MessageBus
 from the_judge.application.tracking_service import TrackingService
@@ -22,24 +22,25 @@ logger = setup_logger("FrameProcessingService")
 class FrameProcessingService:
     def __init__(
         self,
-        face_provider: FaceMLProvider,
-        body_provider: BodyMLProvider,
+        face_detector: FaceDetectorPort,
+        body_detector: BodyDetectorPort,
         tracking_service: TrackingService,
         bus: MessageBus,
         uow_factory: Callable[[], AbstractUnitOfWork],
         max_workers: int = 4,
     ):
-        self.face_provider = face_provider
-        self.body_provider = body_provider
+        self.face_detector = face_detector
+        self.body_detector = body_detector
         self.tracking_service = tracking_service
         self.bus = bus
         self.uow_factory = uow_factory
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         self.visitors: list[Visitor] = []
-
+        self.settings = get_settings()
+    
     async def on_frame_saved(self, event: FrameSaved) -> None:
         image_path = (
-            Path(get_settings().get_stream_path(event.frame.collection_id))
+            Path(self.settings.get_stream_path(event.frame.collection_id))
             / f"{event.frame.camera_name}.jpg"
         )
         loop = asyncio.get_running_loop()
@@ -48,40 +49,32 @@ class FrameProcessingService:
         )
 
     def process_frame(self, frame: Frame, image_path: str) -> None:
+        frame_id = frame.id
+        collection_id = frame.collection_id
+        
         try:
             image = self._load_image(image_path)
             if image is None:
                 logger.error("Failed to load image %s", image_path)
                 return
 
-            composites, bodies = self._detect_objects(image, frame.id)
+            composites, bodies = self._detect_objects(image, frame_id)
 
             with self.uow_factory() as uow:
+                uow.repository.add(frame)
                 self.tracking_service.handle_frame(uow, frame, composites, bodies)
+                logger.info("Processed frame %s from collection %s: %d faces, %d bodies", frame_id, collection_id, len(composites), len(bodies))
                 uow.commit()
 
-            # self.bus.handle(
-            #     FrameProcessed(
-            #         frame=frame,
-            #         faces=faces_and_embeddings,
-            #         bodies=bodies
-            #     )
-            # )
-
-            logger.info("Processed frame %s from collection %s: %d faces, %d bodies", frame.id, frame.collection_id, len(composites), len(bodies))
-
         except Exception as exc:
-            logger.exception("Error processing frame %s", frame.id)
+            logger.exception("Error processing frame %s", frame_id)
 
     def _load_image(self, image_path: str):
         img = cv2.imread(image_path)
         return None if img is None else cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     def _detect_objects(self, image: np.ndarray, frame_id: str) -> tuple[list[Composite], list[Body]]:
-        face_detector = self.face_provider.get_face_detector()
-        body_detector = self.body_provider.get_body_detector()
-        
-        faces = face_detector.detect_faces(image, frame_id)
-        bodies = body_detector.detect_bodies(image, frame_id)
+        faces = self.face_detector.detect_faces(image, frame_id)
+        bodies = self.body_detector.detect_bodies(image, frame_id)
 
         return faces, bodies

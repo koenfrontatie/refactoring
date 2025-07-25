@@ -1,6 +1,7 @@
 from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, LargeBinary, Float, JSON, Enum
 from sqlalchemy.orm import registry
 from the_judge.domain.tracking.model import Frame, Face, Body, Detection, Visitor, FaceEmbedding, VisitorState
+from the_judge.infrastructure.db.types.numpy_array import NumpyArray
 import uuid
 
 metadata = MetaData()
@@ -37,8 +38,8 @@ face_embeddings = Table(
     'face_embeddings', metadata,
     Column('pk', Integer, primary_key=True),
     Column('id', String(36), unique=True, nullable=False, index=True),
-    Column('embedding', LargeBinary),
-    Column('normed_embedding', LargeBinary)
+    Column('embedding', NumpyArray),
+    Column('normed_embedding', NumpyArray)
 )
 
 def start_mappers():

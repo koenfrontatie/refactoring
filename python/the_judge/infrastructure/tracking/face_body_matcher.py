@@ -60,7 +60,7 @@ class FaceBodyMatcher(FaceBodyMatcherPort):
                 else:
                     width_score = 0.0
                 
-                if width_score <= 0.1:
+                if width_score <= 0.0:
                     cost_matrix[i, j] = 1.0
                     continue
                 

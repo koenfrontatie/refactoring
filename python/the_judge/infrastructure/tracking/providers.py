@@ -3,11 +3,7 @@ from insightface.app import FaceAnalysis
 from ultralytics import YOLO
 from the_judge.settings import get_settings
 from the_judge.common.logger import setup_logger
-from the_judge.domain.tracking.ports import FaceMLProvider, BodyMLProvider, FaceDetectorPort, FaceRecognizerPort, BodyDetectorPort
-
-from .body_detector import BodyDetector
-from .face_detector import FaceDetector
-from .face_recognizer import FaceRecognizer
+from the_judge.domain.tracking.ports import FaceMLProvider, BodyMLProvider
 
 logger = setup_logger("Providers")
 
@@ -24,15 +20,9 @@ class InsightFaceProvider(FaceMLProvider):
         )
         self.app.prepare(ctx_id=0, det_size=(640, 640))
         logger.info("InsightFace initialized from %s", model_path)
-        
-        self._face_detector = FaceDetector(self.app)
-        self._face_recognizer = FaceRecognizer(self.app)
     
-    def get_face_detector(self) -> FaceDetectorPort:
-        return self._face_detector
-    
-    def get_face_recognizer(self) -> FaceRecognizerPort:
-        return self._face_recognizer
+    def get_face_model(self):
+        return self.app
 
 
 class YOLOProvider(BodyMLProvider):
@@ -52,8 +42,6 @@ class YOLOProvider(BodyMLProvider):
             
         self.model.to("cuda")
         self.model.conf, self.model.iou, self.model.classes = 0.3, 0.5, [0]
-        
-        self._body_detector = BodyDetector(self.model)
     
-    def get_body_detector(self) -> BodyDetectorPort:
-        return self._body_detector
+    def get_body_model(self):
+        return self.model

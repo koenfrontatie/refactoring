@@ -114,12 +114,12 @@ class Visitor:
         return {
             'id': self.id,
             'name': self.name,
-            'state': self.state,
+            'state': self.state.value, 
             'face_id': self.face_id,
             'body_id': self.body_id,
             'seen_count': self.seen_count,
-            'captured_at': self.captured_at,
-            'created_at': self.created_at
+            'captured_at': datetime_utils.to_formatted_string(self.captured_at),
+            'created_at': datetime_utils.to_formatted_string(self.created_at)
         }
 
 

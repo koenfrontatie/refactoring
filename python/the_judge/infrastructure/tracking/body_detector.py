@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime
 from typing import List
 
-from the_judge.domain.tracking.ports import BodyDetectorPort, BodyMLProvider
+from the_judge.domain.tracking.ports import BodyDetectorPort
 from the_judge.domain.tracking.model import Body
 from the_judge.common.logger import setup_logger
 
@@ -11,8 +11,8 @@ logger = setup_logger('BodyDetector')
 
 class BodyDetector(BodyDetectorPort):
 
-    def __init__(self, provider: BodyMLProvider):
-        self.model = provider.model
+    def __init__(self, body_model):
+        self.model = body_model
     
     def detect_bodies(self, image: np.ndarray, frame_id: str) -> List[Body]:
         if self.model is None:

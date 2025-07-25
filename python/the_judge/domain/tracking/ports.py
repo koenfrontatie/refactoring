@@ -44,11 +44,11 @@ class FaceRecognizerPort(ABC):
 
 
 class FaceMLProvider(ABC):
-    def get_face_detector(self) -> FaceDetectorPort:
-        pass
-    def get_face_recognizer(self) -> FaceRecognizerPort:
+    @abstractmethod
+    def get_face_model(self):
         pass
 
 class BodyMLProvider(ABC):
-    def get_body_detector(self) -> BodyDetectorPort:
+    @abstractmethod
+    def get_body_model(self):
         pass

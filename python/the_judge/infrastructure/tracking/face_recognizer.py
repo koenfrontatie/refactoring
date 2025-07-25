@@ -17,17 +17,16 @@ class FaceRecognizer(FaceRecognizerPort):
     
     def __init__(
         self,
-        *,
+        face_model,
         uow_factory: Callable[[], AbstractUnitOfWork],
-        provider,  # InsightFaceProvider instance
         threshold: float = 0.5,
     ) -> None:
+        self.face_model = face_model
         self.uow_factory = uow_factory
-        self.provider = provider
         self.threshold = threshold
 
     def recognize_faces(self, faces: List[Composite]) -> List[Composite]:
-        """Recognize faces against known embeddings in database. Returns FaceComposite objects with matched visitors attached."""
+        """Recognize faces against known embeddings in database. Returns composite objects with matched visitors attached."""
         if not faces:
             return []
 
@@ -107,7 +106,7 @@ class FaceRecognizer(FaceRecognizerPort):
 
     def _sim(self, a: np.ndarray, b: np.ndarray) -> float:
         # Use InsightFace's optimised function if available
-        model = getattr(self.provider.app, "model", None)
+        model = getattr(self.face_model, "model", None)
         if model and hasattr(model, "compute_sim"):
             return float(model.compute_sim(a, b))
         return float(np.dot(a, b))

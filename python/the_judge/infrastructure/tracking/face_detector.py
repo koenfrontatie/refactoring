@@ -5,7 +5,7 @@ from typing import List, Callable, Tuple
 import cv2
 import numpy as np
 
-from the_judge.domain.tracking.ports import FaceDetectorPort, FaceMLProvider
+from the_judge.domain.tracking.ports import FaceDetectorPort
 from the_judge.domain.tracking.model import Face, FaceEmbedding, Composite
 from the_judge.common.logger import setup_logger
 from the_judge.common.datetime_utils import now
@@ -14,15 +14,15 @@ logger = setup_logger("FaceDetector")
 
 
 class FaceDetector(FaceDetectorPort):
-    def __init__(                       # only this block modified
+    def __init__(
         self,
-        insight_provider: FaceMLProvider,  # expects provider instance
+        face_model,
         *,
         det_thresh: float = 0.5,
         min_area: int = 2500,
         min_norm: float = 15,
     ):
-        self.app = insight_provider  # store raw FaceAnalysis object
+        self.app = face_model
         self.det_thresh = det_thresh
         self.min_area = min_area
         self.min_norm = min_norm

@@ -4,11 +4,10 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
-from the_judge.infrastructure.db.orm import Frame
+from the_judge.domain.tracking.model import Frame
 from the_judge.domain.tracking.ports import FrameCollectorPort
 from the_judge.domain.tracking.events import FrameSaved
 from the_judge.application.messagebus import MessageBus
-from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.common.logger import setup_logger
 from the_judge.settings import get_settings
 
@@ -18,12 +17,10 @@ class FrameCollector(FrameCollectorPort):
     def __init__(
         self, 
         bus: MessageBus, 
-        uow_factory: Callable[[], AbstractUnitOfWork],
         max_workers: int = 2
     ):
         self._cameras: set[str] = set()
         self.cfg = get_settings()
-        self.uow_factory = uow_factory
         self.bus = bus
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
@@ -59,12 +56,6 @@ class FrameCollector(FrameCollectorPort):
             collection_id=command.collection_id,
         )
         
-        # Use UoW only for persistence
-        with self.uow_factory() as uow:
-            uow.repository.add(frame)
-            uow.commit()
-        
-        # Use the ID we created, not frame.id
         event = FrameSaved(
             frame=frame
         )
@@ -72,8 +63,5 @@ class FrameCollector(FrameCollectorPort):
         self.bus.handle(event)
 
         logger.info(
-            f"Saved frame from {command.camera_name} to {filepath.absolute()} and database"
+            f"Saved frame from {command.camera_name} to {filepath.absolute()}"
         )
-
-
-        self.bus.handle(event)

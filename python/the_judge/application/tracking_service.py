@@ -5,7 +5,7 @@ import asyncio
 from randomname import get_name
 import uuid
 
-from the_judge.domain.tracking.ports import FaceMLProvider, FaceBodyMatcherPort, FaceRecognizerPort
+from the_judge.domain.tracking.ports import FaceBodyMatcherPort, FaceRecognizerPort
 from the_judge.domain.tracking.model import Frame, Detection, Face, Body, FaceEmbedding, Composite, Visitor, VisitorState
 
 from the_judge.infrastructure.tracking.face_body_matcher import FaceBodyMatcher
@@ -38,7 +38,7 @@ class CollectionBuffer:
 class TrackingService:
     def __init__(
         self,
-        face_provider: FaceMLProvider,
+        face_recognizer: FaceRecognizerPort,
         face_body_matcher: FaceBodyMatcherPort,
         uow_factory: Callable[[], AbstractUnitOfWork],
         bus: MessageBus
@@ -46,7 +46,7 @@ class TrackingService:
         self.uow_factory = uow_factory
         self.bus = bus
         self.face_body_matcher = face_body_matcher
-        self.face_recognizer = face_provider.get_face_recognizer()
+        self.face_recognizer = face_recognizer
 
         self.cached_collection: Optional[CollectionBuffer] = None
 
