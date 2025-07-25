@@ -13,6 +13,11 @@ class Settings(BaseModel):
     # Camera settings
     capture_interval: float = Field(default=10.0, env="CAPTURE_INTERVAL")
     
+    # Detection settings
+    face_detection_threshold: float = Field(default=0.5, env="FACE_DETECTION_THRESHOLD")
+    face_recognition_threshold: float = Field(default=0.5, env="FACE_RECOGNITION_THRESHOLD")
+    model_path: Path = Field(default_factory=lambda: Path(__file__).parent / "infrastructure" / "models", env="MODEL_PATH")
+    
     # Storage paths
     storage_dir: Path = Field(default=Path("storage"), env="STORAGE_DIR")
     stream_dir: Path = Field(default=Path("storage/stream"), env="STREAM_DIR")
@@ -35,8 +40,4 @@ def get_settings() -> Settings:
     global _settings
     if _settings is None:
         _settings = Settings()
-        
-        _settings.storage_dir.mkdir(parents=True, exist_ok=True)
-        _settings.stream_dir.mkdir(parents=True, exist_ok=True)
-        
     return _settings

@@ -1,27 +1,32 @@
-Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 18-07-25 15:52:38.58
+Directory tree of "C:\Users\koenv\Documents\Dev\NodeProjects\refactoring\python"  |  Generated 25-07-25 17:24:49.44
 ============================================================
 python
 |   .env
 |   .env.example
 |   .gitignore
-|   python
 |   refactoring.code-workspace
 |   requirements.txt
 |   startvenv.bat
 +--- scripts
-|   |   socket_test_cli.py
+|   |   run_tests.py
+|   |   socket_test_gui.py
+|   |   start_gui.bat
 |   |   __init__.py
+|   +--- tests
+|   |   |   test_collection_buffer.py
+|   |   |   test_visitor_domain.py
+|   |   |   test_visitor_tracking.py
+|   |   |   __init__.py
 +--- the_judge
 |   |   .gitignore
 |   |   container.py
-|   |   main.py
 |   |   settings.py
-|   |   __init__.py
+|   |   __main__.py
 |   +--- application
-|   |   |   dtos.py
+|   |   |   messagebus.py
+|   |   |   processing_service.py
+|   |   |   tracking_service.py
 |   |   |   __init__.py
-|   |   +--- services
-|   |   |   |   camera_service.py
 |   +--- common
 |   |   |   datetime_utils.py
 |   |   |   logger.py
@@ -30,9 +35,14 @@ python
 |   |   |   __init__.py
 |   |   +--- tracking
 |   |   |   |   commands.py
+|   |   |   |   events.py
 |   |   |   |   model.py
 |   |   |   |   ports.py
 |   |   |   |   __init__.py
+|   +--- entrypoints
+|   |   |   handlers.py
+|   |   |   socket_client.py
+|   |   |   __init__.py
 |   +--- infrastructure
 |   |   |   __init__.py
 |   |   +--- cameras
@@ -43,19 +53,28 @@ python
 |   |   |   |   __init__.py
 |   |   +--- db
 |   |   |   |   engine.py
-|   |   |   |   sqlalchemy_uow.py
+|   |   |   |   orm.py
+|   |   |   |   repository.py
+|   |   |   |   unit_of_work.py
 |   |   |   |   __init__.py
-|   |   |   +--- models
-|   |   |   |   |   tracking_models.py
-|   |   |   |   |   __init__.py
-|   |   |   +--- repositories
-|   |   |   |   |   tracking_repo.py
-|   |   +--- network
-|   |   |   |   handlers.py
-|   |   |   |   socket_client.py
+|   |   +--- models
+|   |   |   +--- insightface
+|   |   |   |   +--- models
+|   |   |   |   |   |   buffalo_l.zip
+|   |   |   |   |   +--- buffalo_l
+|   |   |   |   |   |   |   1k3d68.onnx
+|   |   |   |   |   |   |   2d106det.onnx
+|   |   |   |   |   |   |   det_10g.onnx
+|   |   |   |   |   |   |   genderage.onnx
+|   |   |   |   |   |   |   w600k_r50.onnx
+|   |   |   +--- yolo
+|   |   |   |   |   yolov8n.pt
 |   |   +--- tracking
-|   |   |   |   detector.py
-|   |   |   |   face_embedder.py
+|   |   |   |   body_detector.py
+|   |   |   |   face_body_matcher.py
+|   |   |   |   face_detector.py
+|   |   |   |   face_recognizer.py
 |   |   |   |   frame_collector.py
-|   |   |   |   matcher.py
+|   |   |   |   providers.py
+|   |   |   |   __init__.py
 |   |   |   +--- models

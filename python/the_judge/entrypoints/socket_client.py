@@ -1,18 +1,19 @@
 # infrastructure/network/socket.py
-import asyncio, logging, socketio, uuid
-from settings import get_settings
-from entrypoints.handlers import register as reg_handlers
+import asyncio, logging, socketio
+
+from the_judge.settings import get_settings
+from the_judge.entrypoints.handlers import register as reg_handlers
 
 log = logging.getLogger("SocketIOClient")
 
 _URI = get_settings().socket_url.replace("ws://", "http://").replace("wss://", "https://")
 
 class SocketIOClient:
-    def __init__(self, camera_service) -> None:
+    def __init__(self, frame_collector) -> None:
         self.sio = socketio.AsyncClient(reconnection=True)
             
         self._install_basic_logs()
-        reg_handlers(self.sio, camera_service)
+        reg_handlers(self.sio, frame_collector)
 
     async def connect(self) -> None:
         await self.sio.connect(_URI, transports=("websocket", "polling"))
@@ -28,19 +29,23 @@ class SocketIOClient:
         except asyncio.TimeoutError:
             log.warning("ACK timeout for %s", event)
 
+    async def disconnect(self) -> None:
+        """Disconnect from the socket server."""
+        await self.sio.disconnect()
+
     def _install_basic_logs(self) -> None:
         """Attach Socket.IO lifecycle loggers."""
         sio = self.sio
 
-        @sio.event         # → 'connect'
+        @sio.event         
         async def connect() -> None:
             log.info("SocketIO connected → %s", _URI)
 
-        @sio.event         # → 'disconnect'
+        @sio.event         
         async def disconnect() -> None:
             log.warning("SocketIO disconnected")
 
-        @sio.event         # → 'connect_error'
+        @sio.event         
         async def connect_error(err: Exception) -> None:
             log.error("SocketIO connection error → %s", err)
         

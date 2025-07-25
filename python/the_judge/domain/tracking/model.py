@@ -1,78 +1,125 @@
-# src/domain/model.py
 from __future__ import annotations  
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from the_judge.common import datetime_utils
+from typing import Optional
 import numpy as np
-from attr import asdict
+from enum import Enum
 
-@dataclass(frozen=True)
+@dataclass
 class Frame:
-    id: int
-    camera: Camera
+    id: str
+    camera_name: str
     captured_at: datetime
-    uuid: str
+    collection_id: str
 
-@dataclass(frozen=True)
-class Detection:
-    id: int
-    frame: Frame
-    visitor_record: dict
-    captured_at: datetime
-    uuid: str
-
-@dataclass(frozen=True)
-class Collection:
-    id: int
-    created_at: datetime
-    frames: set[Frame]  
-    uuid: str
-
-@dataclass(frozen=True)
+@dataclass
 class Face:
-    id: int
-    frame: Frame
-    bbox: tuple[int, int, int, int] # (x1, y1, x2, y2)
-    embedding: np.ndarray
-    normed_embedding: np.ndarray
+    id: str
+    frame_id: str
+    bbox: tuple[int, int, int, int]
+    embedding_id: str
     embedding_norm: float
     det_score: float
-    quality_score: float
-    pose: str
-    age: int
-    sex: str
-    captured_at: datetime   
-    uuid: str
-
-@dataclass(frozen=True)
-class Body:
-    id: int
-    frame: Frame
-    bbox: tuple[int, int, int, int]  # (x1, y1, x2, y2)
+    quality_score: Optional[float]
+    pose: Optional[str]
+    age: Optional[int]
+    sex: Optional[str]
     captured_at: datetime
-    uuid: str
 
-# ---- Entities ----
+@dataclass
+class FaceEmbedding:
+    id: str
+    embedding: np.ndarray
+    normed_embedding: np.ndarray
+
+@dataclass
+class Body:
+    id: str
+    frame_id: str
+    bbox: tuple[int, int, int, int]
+    captured_at: datetime
+
+
+@dataclass
+class Detection:
+    id: str
+    frame_id: str
+    face_id: str
+    embedding_id: str
+    body_id: Optional[str]
+    visitor_record: dict
+    captured_at: datetime
+
+@dataclass
+class Collection:
+    id: str
+    created_at: datetime
 
 @dataclass
 class Camera:
-    id: int 
+    id: str
     name: str          
     state: str
     captured_at: datetime
     created_at: datetime
-    uuid: str
+
+@dataclass
+class Composite:
+    face: Face
+    embedding: FaceEmbedding
+    body: Optional[Body] = None
+    visitor: Optional[Visitor] = None
+
+class VisitorState(Enum):
+    TEMPORARY = "temporary"
+    ACTIVE = "active"
+    MISSING = "missing"
+    RETURNING = "returning"
 
 @dataclass
 class Visitor:
-    id: int
+    id: str
     name: str
-    state: str
-    face: Face
-    body: Body
+    state: VisitorState
+    face_id: str
+    body_id: str
+    seen_count: int
     captured_at: datetime
     created_at: datetime
-    uuid: str
+    
 
+    @property
+    def time_since_creation(self) -> timedelta:
+        return datetime_utils.now() - self.created_at
+    
+    @property
+    def time_since_last_seen(self) -> timedelta:
+        return datetime_utils.now() - self.captured_at
+
+    @property
+    def is_missing(self) -> bool:
+        return self.time_since_last_seen > timedelta(minutes=1) 
+    
+    @property
+    def should_be_promoted(self) -> bool:
+        return (self.state == VisitorState.TEMPORARY and self.seen_count >= 3)  
+    
+    @property
+    def should_be_removed(self) -> bool:
+        return (self.state == VisitorState.TEMPORARY and 
+                self.time_since_last_seen > timedelta(minutes=1))
+    
     def record(self) -> dict:
-        return asdict(self)
+        return {
+            'id': self.id,
+            'name': self.name,
+            'state': self.state.value, 
+            'face_id': self.face_id,
+            'body_id': self.body_id,
+            'seen_count': self.seen_count,
+            'captured_at': datetime_utils.to_formatted_string(self.captured_at),
+            'created_at': datetime_utils.to_formatted_string(self.created_at)
+        }
+
 
