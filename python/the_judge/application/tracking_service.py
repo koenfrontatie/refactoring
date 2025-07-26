@@ -106,15 +106,11 @@ class TrackingService:
         collection_composites = self.cached_collection.get_composites()
         
         if collection_composites:
-            current_and_collection = [composite] + collection_composites
-            recognized_composites = self.face_recognizer.recognize_faces(current_and_collection)
-            
-            if recognized_composites[0].visitor:
-                matched_visitor = recognized_composites[0].visitor
-                if self.cached_collection.has_visitor(matched_visitor.id):
-                    matched_visitor.captured_at = now()
-                    uow.repository.add(matched_visitor)
-                    return matched_visitor
+            matched_visitor = self.face_recognizer.match_against_collection(composite, collection_composites)
+            if matched_visitor:
+                matched_visitor.captured_at = now()
+                uow.repository.add(matched_visitor)
+                return matched_visitor
         
         new_visitor = Visitor(
             id=str(uuid.uuid4()),

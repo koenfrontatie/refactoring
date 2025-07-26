@@ -48,6 +48,12 @@ class FaceRecognizer(FaceRecognizerPort):
 
         return results
 
+    def match_against_collection(self, composite: Composite, collection: List[Composite]) -> Optional[Visitor]:
+        for existing in collection:
+            if self._sim(composite.embedding.normed_embedding, existing.embedding.normed_embedding) > self.threshold:
+                return existing.visitor
+        return None
+    
     def _find_visitor(
         self, 
         query_composite: Composite, 
@@ -99,6 +105,7 @@ class FaceRecognizer(FaceRecognizerPort):
                 best_embedding, best_sim = gallery_embedding, sim
 
         return best_embedding
+
 
     def _valid_composite(self, fc: Composite) -> bool:
         return (fc.embedding.normed_embedding is not None and 

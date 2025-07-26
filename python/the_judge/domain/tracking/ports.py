@@ -42,6 +42,9 @@ class FaceRecognizerPort(ABC):
         """Recognize faces against known embeddings in database. Returns FaceComposite objects with matched visitors attached."""
         pass
 
+    def match_against_collection(self, composite: Composite, collection: List[Composite]) -> Optional[Visitor]:
+        """Match a composite against a collection of composites to find an existing visitor."""
+        pass
 
 class FaceMLProvider(ABC):
     @abstractmethod
