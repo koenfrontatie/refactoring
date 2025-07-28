@@ -82,10 +82,9 @@ class Visitor:
     id: str
     name: str
     state: VisitorState
-    face_id: str
-    body_id: str
     seen_count: int
-    captured_at: datetime
+    current_session_id: Optional[str]
+    last_seen: datetime
     created_at: datetime
     
 
@@ -95,7 +94,7 @@ class Visitor:
     
     @property
     def time_since_last_seen(self) -> timedelta:
-        return datetime_utils.now() - self.captured_at
+        return datetime_utils.now() - self.last_seen
 
     @property
     def is_missing(self) -> bool:
@@ -115,11 +114,39 @@ class Visitor:
             'id': self.id,
             'name': self.name,
             'state': self.state.value, 
-            'face_id': self.face_id,
-            'body_id': self.body_id,
             'seen_count': self.seen_count,
-            'captured_at': datetime_utils.to_formatted_string(self.captured_at),
+            'current_session_id': self.current_session_id,
+            'last_seen': datetime_utils.to_formatted_string(self.last_seen),
             'created_at': datetime_utils.to_formatted_string(self.created_at)
         }
+
+
+@dataclass
+class VisitorSession:
+    id: str
+    visitor_id: str
+    start_frame_id: str
+    end_frame_id: Optional[str]
+    started_at: datetime
+    ended_at: Optional[datetime]
+    captured_at: datetime
+    frame_count: int
+    
+    def end_session(self, end_frame_id: str, ended_at: datetime):
+        self.end_frame_id = end_frame_id
+        self.ended_at = ended_at
+    
+    def increment_frame_count(self):
+        self.frame_count += 1
+    
+    @property
+    def is_active(self) -> bool:
+        return self.ended_at is None
+    
+    @property
+    def duration(self) -> Optional[timedelta]:
+        if self.ended_at:
+            return self.ended_at - self.started_at
+        return None
 
 
