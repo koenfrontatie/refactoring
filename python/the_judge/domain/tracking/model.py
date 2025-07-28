@@ -109,6 +109,19 @@ class Visitor:
         return (self.state == VisitorState.TEMPORARY and 
                 self.time_since_last_seen > timedelta(minutes=1))
     
+    def determine_state_with_session(self, current_session: Optional[VisitorSession]) -> VisitorState:
+        """Determine visitor state based on current session timing."""
+        if self.state == VisitorState.TEMPORARY and self.should_be_promoted:
+            # Check if we have an active session and are within RETURNING window
+            if current_session and current_session.is_active:
+                time_since_session_start = datetime_utils.now() - current_session.started_at
+                if time_since_session_start <= timedelta(seconds=30):
+                    return VisitorState.RETURNING
+            return VisitorState.ACTIVE
+        elif self.is_missing:
+            return VisitorState.MISSING
+        return self.state
+    
     def record(self) -> dict:
         return {
             'id': self.id,
