@@ -6,7 +6,7 @@ import uuid
 import numpy as np
 
 from the_judge.domain.tracking.model import Face, FaceEmbedding, Body, Composite, Visitor, VisitorState
-from the_judge.application.tracking_service import CollectionBuffer
+from the_judge.application.tracking_service import FrameCollection
 from the_judge.common.datetime_utils import now
 
 
@@ -58,7 +58,7 @@ def test_collection_buffer():
     # Test 1: Basic buffer operations
     print("Testing: Basic buffer operations")
     
-    buffer = CollectionBuffer("test-collection")
+    buffer = FrameCollection("test-collection")
     assert len(buffer.get_composites()) == 0
     print("✓ Empty buffer initialized correctly")
     

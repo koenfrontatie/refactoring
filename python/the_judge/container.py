@@ -50,7 +50,6 @@ def create_app() -> App:
     
     tracking_service = TrackingService(
         face_recognizer=face_recognizer,
-        face_body_matcher=face_body_matcher,
         uow_factory=uow_factory,
         bus=bus
     )
@@ -58,6 +57,7 @@ def create_app() -> App:
     processing_service = FrameProcessingService(
         face_detector=face_detector,
         body_detector=body_detector,
+        face_body_matcher=face_body_matcher,
         tracking_service=tracking_service,
         bus=bus,
         uow_factory=uow_factory

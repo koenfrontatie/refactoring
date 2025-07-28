@@ -9,6 +9,7 @@ from the_judge.domain.tracking.ports import FrameCollectorPort
 from the_judge.domain.tracking.events import FrameSaved
 from the_judge.application.messagebus import MessageBus
 from the_judge.common.logger import setup_logger
+from the_judge.common.datetime_utils import now
 from the_judge.settings import get_settings
 
 logger = setup_logger("FrameCollector")
@@ -52,7 +53,7 @@ class FrameCollector(FrameCollectorPort):
         frame = Frame(
             id=frame_id,
             camera_name=command.camera_name,
-            captured_at=datetime.now(),
+            captured_at=now(),
             collection_id=command.collection_id,
         )
         
