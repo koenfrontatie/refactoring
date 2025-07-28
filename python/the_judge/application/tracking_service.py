@@ -102,7 +102,7 @@ class TrackedVisitors:
             self._cleanup_visitor(visitor_id)
     
     def _cleanup_visitor(self, visitor_id: str) -> None:
-        """Clean up visitor and their associated session."""
+        """Clean up visitor and their associated session - mark for deletion."""
         visitor = self.visitors.get(visitor_id)
         if visitor and visitor.current_session_id:
             # End the session
@@ -110,9 +110,17 @@ class TrackedVisitors:
             if session and session.is_active:
                 session.end_session("cleanup", now())
         
-        # Remove visitor from tracking
+        # Remove visitor from tracking (will be deleted from DB)
         if visitor_id in self.visitors:
             del self.visitors[visitor_id]
+    
+    def get_visitors_to_delete(self) -> List[str]:
+        """Get list of visitor IDs that should be deleted from database."""
+        to_delete = []
+        for visitor_id, visitor in self.visitors.items():
+            if visitor.should_be_removed:
+                to_delete.append(visitor_id)
+        return to_delete
 
     def get_visitor(self, visitor_id: str) -> Optional[Visitor]:
         return self.visitors.get(visitor_id)
@@ -275,23 +283,39 @@ class TrackingService:
             uow.commit()
     
     def cleanup_expired_visitors(self) -> int:
-        """Clean up expired temporary visitors and return count of removed visitors."""
-        initial_count = len(self.tracked_visitors.visitors)
+        """Clean up expired temporary visitors - DELETE all their data from database."""
+        # Get visitors to delete before cleanup
+        visitors_to_delete = []
+        for visitor_id, visitor in self.tracked_visitors.visitors.items():
+            if visitor.should_be_removed:
+                visitors_to_delete.append(visitor_id)
         
-        # Force cleanup by updating states
-        self.tracked_visitors.update_states()
+        if not visitors_to_delete:
+            return 0
         
-        # Persist changes
+        # Delete all associated data from database
         with self.uow_factory() as uow:
-            # Save remaining visitors
-            for visitor in self.tracked_visitors.get_all_visitors():
-                uow.repository.add(visitor)
-            
-            # Save all sessions (including ended ones)
-            for session in self.tracked_visitors.get_all_sessions():
-                uow.repository.add(session)
+            for visitor_id in visitors_to_delete:
+                # Delete all detections for this visitor
+                detections = uow.repository.list_by_field(Detection, 'visitor_id', visitor_id)
+                for detection in detections:
+                    uow.repository.delete(detection)
+                
+                # Get visitor to find session
+                visitor = self.tracked_visitors.get_visitor(visitor_id)
+                if visitor and visitor.current_session_id:
+                    session = self.tracked_visitors.get_session(visitor.current_session_id)
+                    if session:
+                        uow.repository.delete(session)
+                
+                # Delete the visitor itself
+                visitor_entity = uow.repository.get(Visitor, visitor_id)
+                if visitor_entity:
+                    uow.repository.delete(visitor_entity)
             
             uow.commit()
         
-        final_count = len(self.tracked_visitors.visitors)
-        return initial_count - final_count
+        # Now clean up from tracking (this removes from cache)
+        self.tracked_visitors.update_states()
+        
+        return len(visitors_to_delete)

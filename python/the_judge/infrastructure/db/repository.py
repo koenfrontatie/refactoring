@@ -78,6 +78,20 @@ class TrackingRepository:
             .all()
         )
 
+    def list_by_field(self, entity_class: Type, field_name: str, field_value: Any) -> List[Any]:
+        """Get all entities where field_name equals field_value."""
+        filter_dict = {field_name: field_value}
+        return (
+            self.session.query(entity_class)
+            .filter_by(**filter_dict)
+            .all()
+        )
+    
+    def delete(self, entity: Any) -> None:
+        """Delete an entity from the database."""
+        self.session.delete(entity)
+        self.session.flush()
+    
     def _order_col(self, cls: Type):
         cols = inspect(cls).c
         for name in ("captured_at", "pk"):
