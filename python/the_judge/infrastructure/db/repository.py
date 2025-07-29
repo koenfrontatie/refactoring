@@ -26,9 +26,20 @@ class AbstractRepository(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def get_recent(self, entity_class: Type, limit: int) -> List[Any]: ...
+    def list_by(self, entity_class: Type, **filters) -> List[Any]:
+        raise NotImplementedError
+    
     @abstractmethod
-    def get_all_sorted(self, entity_class: Type, offset: int = 0) -> List[Any]: ...
+    def delete(self, entity: Any) -> None:
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_recent(self, entity_class: Type, limit: int) -> List[Any]: 
+        raise NotImplementedError
+        
+    @abstractmethod
+    def get_all_sorted(self, entity_class: Type, offset: int = 0) -> List[Any]: 
+        raise NotImplementedError
 
 
 class TrackingRepository:
@@ -59,6 +70,19 @@ class TrackingRepository:
             .filter_by(**filters)
             .first()
         )
+    
+    def list_by(self, entity_class: Type, **filters) -> List[Any]:
+        """Get all entities matching the given filters."""
+        return (
+            self.session.query(entity_class)
+            .filter_by(**filters)
+            .all()
+        )
+    
+    def delete(self, entity: Any) -> None:
+        """Delete an entity from the database."""
+        self.session.delete(entity)
+        self.session.flush()
 
     def get_recent(self, entity_class: Type, limit: int) -> List[Any]:
         col = self._order_col(entity_class)
@@ -77,20 +101,6 @@ class TrackingRepository:
             .offset(offset)
             .all()
         )
-
-    def list_by_field(self, entity_class: Type, field_name: str, field_value: Any) -> List[Any]:
-        """Get all entities where field_name equals field_value."""
-        filter_dict = {field_name: field_value}
-        return (
-            self.session.query(entity_class)
-            .filter_by(**filter_dict)
-            .all()
-        )
-    
-    def delete(self, entity: Any) -> None:
-        """Delete an entity from the database."""
-        self.session.delete(entity)
-        self.session.flush()
     
     def _order_col(self, cls: Type):
         cols = inspect(cls).c

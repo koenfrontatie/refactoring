@@ -297,7 +297,7 @@ class TrackingService:
         with self.uow_factory() as uow:
             for visitor_id in visitors_to_delete:
                 # Delete all detections for this visitor
-                detections = uow.repository.list_by_field(Detection, 'visitor_id', visitor_id)
+                detections = uow.repository.list_by(Detection, visitor_id=visitor_id)
                 for detection in detections:
                     uow.repository.delete(detection)
                 
