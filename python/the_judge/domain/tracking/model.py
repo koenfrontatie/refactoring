@@ -86,6 +86,7 @@ class Visitor:
     current_session_id: Optional[str]
     last_seen: datetime
     created_at: datetime
+    session_started_at: Optional[datetime] = None
     
 
     @property
@@ -109,34 +110,29 @@ class Visitor:
         return (self.state == VisitorState.TEMPORARY and 
                 self.time_since_last_seen > timedelta(minutes=1))
     
-    def determine_state_with_session(self, current_session: Optional[VisitorSession]) -> VisitorState:
-        """Determine visitor state based on current session timing."""
-        # Handle promotion from TEMPORARY to ACTIVE
-        if self.state == VisitorState.TEMPORARY and self.should_be_promoted:
-            return VisitorState.ACTIVE
-        
-        # Handle MISSING visitors coming back
-        elif self.state == VisitorState.MISSING and not self.is_missing:
-            # They're back! Check if they should be RETURNING or ACTIVE
-            if current_session and current_session.is_active:
-                time_since_session_start = datetime_utils.now() - current_session.started_at
-                if time_since_session_start <= timedelta(seconds=30):
-                    return VisitorState.RETURNING
-            return VisitorState.ACTIVE
-        
-        # Handle RETURNING transition back to ACTIVE
+    def _is_within_returning_window(self, current_time: datetime) -> bool:
+        return (self.session_started_at and 
+                current_time - self.session_started_at <= timedelta(seconds=30))
+    
+    def update_state(self, current_time: datetime) -> None:
+        """Update visitor state based on current time and business rules."""
+        # Promotion
+        if self.state == VisitorState.TEMPORARY and self.seen_count >= 3:
+            self.state = VisitorState.ACTIVE
+            
+        # Missing check
+        elif current_time - self.last_seen > timedelta(minutes=1):
+            self.state = VisitorState.MISSING
+            
+        # Returning logic - combine conditions with OR
+        elif (self.state in [VisitorState.MISSING, VisitorState.RETURNING] and
+              self._is_within_returning_window(current_time) and
+              current_time - self.last_seen <= timedelta(minutes=1)):
+            self.state = VisitorState.RETURNING
+                
+        # Returning timeout
         elif self.state == VisitorState.RETURNING:
-            if current_session and current_session.is_active:
-                time_since_session_start = datetime_utils.now() - current_session.started_at
-                if time_since_session_start > timedelta(seconds=30):
-                    return VisitorState.ACTIVE
-            return VisitorState.RETURNING
-        
-        # Handle missing state
-        elif self.is_missing:
-            return VisitorState.MISSING
-        
-        return self.state
+            self.state = VisitorState.ACTIVE
     
     def record(self) -> dict:
         return {
@@ -146,7 +142,8 @@ class Visitor:
             'seen_count': self.seen_count,
             'current_session_id': self.current_session_id,
             'last_seen': datetime_utils.to_formatted_string(self.last_seen),
-            'created_at': datetime_utils.to_formatted_string(self.created_at)
+            'created_at': datetime_utils.to_formatted_string(self.created_at),
+            'session_started_at': datetime_utils.to_formatted_string(self.session_started_at) if self.session_started_at else None
         }
 
 

@@ -71,7 +71,8 @@ visitors = Table(
     Column('seen_count', Integer, default=0),
     Column('current_session_id', String(36), index=True),
     Column('last_seen', DateTime),
-    Column('created_at', DateTime)
+    Column('created_at', DateTime),
+    Column('session_started_at', DateTime, nullable=True)
 )
 
 # New sessions table

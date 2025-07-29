@@ -50,17 +50,23 @@ class TrackedVisitors:
 
     def _start_session(self, visitor_id: str, frame_id: str) -> VisitorSession:
         """Start a new session for visitor."""
+        session_start_time = now()
         session = VisitorSession(
             id=str(uuid.uuid4()),
             visitor_id=visitor_id,
             start_frame_id=frame_id,
             end_frame_id=None,
-            started_at=now(),
+            started_at=session_start_time,
             ended_at=None,
-            captured_at=now(),
+            captured_at=session_start_time,
             frame_count=1
         )
         self.sessions[session.id] = session
+        
+        # Update visitor's session_started_at
+        if visitor_id in self.visitors:
+            self.visitors[visitor_id].session_started_at = session_start_time
+            
         return session
     
     def _update_session(self, visitor_id: str, frame_id: str) -> None:
@@ -73,29 +79,30 @@ class TrackedVisitors:
 
     def update_states(self) -> None:
         """Update the state of all visitors based on their last seen time and session timing."""
+        current_time = now()
         to_remove = []
+        
         for visitor_id, visitor in self.visitors.items():
-            # Get current session if exists
-            current_session = None
-            if visitor.current_session_id:
-                current_session = self.sessions.get(visitor.current_session_id)
+            # Update visitor state using new clean logic
+            visitor.update_state(current_time)
             
-            # Handle timeout cleanup first
+            # Handle timeout cleanup
             if visitor.should_be_removed:
                 to_remove.append(visitor_id)
                 # End session if active
-                if current_session and current_session.is_active:
-                    current_session.end_session("timeout", now())
+                if visitor.current_session_id and visitor.current_session_id in self.sessions:
+                    session = self.sessions[visitor.current_session_id]
+                    if session.is_active:
+                        session.end_session("timeout", current_time)
                 continue
             
             # Handle missing visitors (end their sessions)
-            if visitor.is_missing and current_session and current_session.is_active:
-                current_session.end_session("missing", now())
-                visitor.current_session_id = None
-            
-            # Determine new state based on session timing
-            new_state = visitor.determine_state_with_session(current_session)
-            visitor.state = new_state
+            if visitor.state == VisitorState.MISSING:
+                if visitor.current_session_id and visitor.current_session_id in self.sessions:
+                    session = self.sessions[visitor.current_session_id]
+                    if session.is_active:
+                        session.end_session("missing", current_time)
+                        visitor.current_session_id = None
         
         # Remove expired temporary visitors
         for visitor_id in to_remove:
