@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List
-from the_judge.domain.tracking.model import Visitor, DetectionCollection, Composite
+from the_judge.domain.tracking.model import Visitor, VisitorCollection, Composite
 from the_judge.common.datetime_utils import now
 
 
@@ -8,11 +8,11 @@ from the_judge.common.datetime_utils import now
 class VisitorRegistry:
     active_visitors: Dict[str, Visitor] = field(default_factory=dict)
     visitor_composites: Dict[str, Composite] = field(default_factory=dict)
-    current_collection: Optional[DetectionCollection] = None
+    current_collection: Optional[VisitorCollection] = None
 
-    def get_or_create_collection(self, collection_id: str) -> DetectionCollection:
+    def get_or_create_collection(self, collection_id: str) -> VisitorCollection:
         if not self.current_collection or self.current_collection.id != collection_id:
-            self.current_collection = DetectionCollection(
+            self.current_collection = VisitorCollection(
                 id=collection_id,
                 created_at=now()
             )

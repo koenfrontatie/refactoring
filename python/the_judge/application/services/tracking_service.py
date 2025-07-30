@@ -27,17 +27,10 @@ class TrackingService:
         self.visitor_registry = VisitorRegistry()
 
     def handle_frame(self, uow: AbstractUnitOfWork, frame: Frame, unknown_composites: List[Composite], bodies: List[Body]) -> None:
-        det_frame = DetectionFrame(
-            id=frame.id,
-            collection_id=frame.collection_id,
-            camera_name=frame.camera_name,
-            captured_at=frame.captured_at
-        )
-
-        collection = self.visitor_registry.get_or_create_collection(det_frame.collection_id)
-
+        collection = self.visitor_registry.get_or_create_collection(frame.collection_id)
         recognized_composites = self.face_recognizer.recognize_faces(unknown_composites)
 
+        detections = []
         for composite in recognized_composites:
             if not composite.visitor:
                 visitor = self.face_recognizer.match_against_collection(composite, collection)
@@ -46,22 +39,26 @@ class TrackingService:
                 composite.visitor = visitor
             
             is_new_collection = collection.mark_visitor_seen(composite.visitor.id)
-            visitor_record = composite.visitor.record_detection(det_frame.collection_id, det_frame.id, is_new_collection)
+            visitor_record = composite.visitor.record_detection(frame.collection_id, frame.id, is_new_collection)
             
             self.visitor_registry.add_visitor_with_composite(composite.visitor, composite)
             
-            det_frame.add_detection(
+            detection = Detection(
+                id=str(uuid.uuid4()),
+                frame_id=frame.id,
                 face_id=composite.face.id,
                 embedding_id=composite.embedding.id,
                 visitor_id=composite.visitor.id,
                 visitor_record=visitor_record,
+                captured_at=now(),
                 body_id=composite.body.id if composite.body else None
             )
+            detections.append(detection)
 
-        self._persist_frame_and_visitors(uow, det_frame, bodies, recognized_composites)
-        self._publish_events(det_frame)
-        self.bus.handle(FrameProcessed(det_frame.id, len(det_frame.detections)))
-        self.process_timeouts()
+        self._persist_frame_and_visitors(uow, frame, bodies, recognized_composites, detections)
+        self._publish_events(recognized_composites)
+        self.bus.handle(FrameProcessed(frame.id, len(detections)))
+        self.handle_visitor_timeouts(uow)
 
     def _create_new_visitor(self) -> Visitor:
         visitor = Visitor.create_new(get_name())
@@ -99,42 +96,29 @@ class TrackingService:
             self.bus.handle(event)
         frame.events.clear()
 
-    def process_timeouts(self) -> None:
+    def handle_visitor_timeouts(self, uow: AbstractUnitOfWork) -> int:
         expired_visitors = self.visitor_registry.update_all_states()
         
-        with self.uow_factory() as uow:
-            for visitor in self.visitor_registry.get_all_visitors():
-                uow.repository.merge(visitor)
-                if visitor.current_session:
-                    uow.repository.merge(visitor.current_session)
+        if not expired_visitors:
+            return 0
             
-            for expired_visitor in expired_visitors:
-                for event in expired_visitor.events:
-                    self.bus.handle(event)
-                expired_visitor.events.clear()
-            
-            uow.commit()
-
-    def cleanup_expired_visitors(self) -> int:
-        expired_visitors = self.visitor_registry.update_all_states()
-        
-        with self.uow_factory() as uow:
-            for visitor in expired_visitors:
-                for event in visitor.events:
-                    self.bus.handle(event)
-                visitor.events.clear()
-                
-                detections = uow.repository.list_by(Detection, visitor_id=visitor.id)
-                for detection in detections:
-                    uow.repository.delete(detection)
-                
-                if visitor.current_session:
-                    uow.repository.delete(visitor.current_session)
-                
-                visitor_entity = uow.repository.get(Visitor, visitor.id)
-                if visitor_entity:
-                    uow.repository.delete(visitor_entity)
-            
-            uow.commit()
+        for visitor in expired_visitors:
+            self._cleanup_visitor_data(uow, visitor)
         
         return len(expired_visitors)
+
+    def _cleanup_visitor_data(self, uow: AbstractUnitOfWork, visitor: Visitor) -> None:
+        for event in visitor.events:
+            self.bus.handle(event)
+        visitor.events.clear()
+        
+        detections = uow.repository.list_by(Detection, visitor_id=visitor.id)
+        for detection in detections:
+            uow.repository.delete(detection)
+        
+        if visitor.current_session:
+            uow.repository.delete(visitor.current_session)
+        
+        visitor_entity = uow.repository.get(Visitor, visitor.id)
+        if visitor_entity:
+            uow.repository.delete(visitor_entity)
