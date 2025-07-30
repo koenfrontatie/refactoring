@@ -72,7 +72,8 @@ class TrackingService:
             )
             detections.append(detection)
 
-        expired_visitors, state_changed_visitors = self.handle_visitor_timeouts_without_persist()
+        expired_visitors, state_changed_visitors = self.visitor_registry.update_all_states()
+        
         dirty_visitors.update(state_changed_visitors)
 
         self._persist_everything(uow, frame, bodies, recognized_composites, detections, dirty_visitors)
@@ -110,9 +111,6 @@ class TrackingService:
                 for event in composite.visitor.events:
                     self.bus.handle(event)
                 composite.visitor.events.clear()
-
-    def handle_visitor_timeouts_without_persist(self) -> tuple[List[Visitor], List[Visitor]]:
-        return self.visitor_registry.update_all_states()
 
     def _cleanup_expired_visitors(self, uow: AbstractUnitOfWork, expired_visitors: List[Visitor]) -> None:
         for visitor in expired_visitors:
