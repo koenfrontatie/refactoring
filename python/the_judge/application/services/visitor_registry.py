@@ -6,9 +6,10 @@ from the_judge.common.datetime_utils import now
 
 @dataclass
 class VisitorRegistry:
-    # Global visitor state across all collections
+    # Tracks global visitor state.
     active_visitors: Dict[str, Visitor] = field(default_factory=dict)
-    # Current collection for 10-second processing window
+    
+    # Visitor composites from all frames in latest collection timeframe.
     current_collection: Optional[VisitorCollection] = None
 
     def get_or_create_collection(self, collection_id: str) -> VisitorCollection:
@@ -20,8 +21,11 @@ class VisitorRegistry:
         return self.current_collection
 
     def add_composite(self, composite: Composite) -> bool:
+        # Update global visitor state
         visitor = composite.visitor
         self.active_visitors[visitor.id] = visitor
+        
+        # Check if new in current collection
         if self.current_collection:
             is_new = not any(c.visitor.id == visitor.id for c in self.current_collection.composites)
             self.current_collection.composites.append(composite)
@@ -40,6 +44,7 @@ class VisitorRegistry:
         return self.active_visitors.pop(visitor_id, None)
 
     def update_all_states(self) -> tuple[List[Visitor], List[Visitor]]:
+        # Time-based state transitions for all active visitors
         current_time = now()
         expired_visitors = []
         state_changed_visitors = []
