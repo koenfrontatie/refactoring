@@ -98,7 +98,6 @@ class Visitor:
     last_seen: datetime
     created_at: datetime
     current_session: Optional[VisitorSession] = None
-    returned_at: Optional[datetime] = None
     events: List = field(default_factory=list, init=False)
 
     @classmethod
@@ -151,18 +150,18 @@ class Visitor:
         return self.record()
 
     def update_state(self, current_time: datetime) -> None:
-        old_state = self.state
         time_since_last_seen = current_time - self.last_seen
         
-        if self._should_be_missing(time_since_last_seen):
-            self._transition_to_missing()
-        elif self._should_be_returning(current_time, time_since_last_seen):
-            self._transition_to_returning()
+        if time_since_last_seen > timedelta(minutes=1):
+            if self.state != VisitorState.MISSING:
+                self._become_missing(current_time)
+        elif self.state == VisitorState.MISSING:
+            self.state = VisitorState.RETURNING
+            from .events import VisitorReturned
+            self.events.append(VisitorReturned(visitor_id=self.id))
         elif self.state == VisitorState.RETURNING:
-            self._transition_to_active()
-        
-        if old_state != VisitorState.MISSING and self.state == VisitorState.MISSING:
-            self._end_current_session("timeout", current_time)
+            if self.current_session and (current_time - self.current_session.started_at) > timedelta(seconds=30):
+                self.state = VisitorState.ACTIVE
 
     def expire(self) -> None:
         if self.current_session and self.current_session.is_active:
@@ -175,14 +174,6 @@ class Visitor:
     def should_be_removed(self) -> bool:
         return (self.state == VisitorState.TEMPORARY and 
                 (datetime_utils.now() - self.last_seen) > timedelta(minutes=1))
-
-    @property
-    def time_since_creation(self) -> timedelta:
-        return datetime_utils.now() - self.created_at
-    
-    @property
-    def time_since_last_seen(self) -> timedelta:
-        return datetime_utils.now() - self.last_seen
 
     @property
     def current_session_id(self) -> Optional[str]:
@@ -198,33 +189,11 @@ class Visitor:
             from .events import VisitorPromoted
             self.events.append(VisitorPromoted(visitor_id=self.id))
 
-    def _should_be_missing(self, time_since_last_seen: timedelta) -> bool:
-        return time_since_last_seen > timedelta(minutes=1)
-
-    def _should_be_returning(self, current_time: datetime, time_since_last_seen: timedelta) -> bool:
-        if not self.current_session:
-            return False
-        
-        within_returning_window = (current_time - self.current_session.started_at) <= timedelta(seconds=30)
-        not_too_long_missing = time_since_last_seen <= timedelta(minutes=1)
-        
-        return (self.state in [VisitorState.MISSING, VisitorState.RETURNING] and 
-                within_returning_window and not_too_long_missing)
-
-    def _transition_to_missing(self) -> None:
-        if self.state != VisitorState.MISSING:
-            self.state = VisitorState.MISSING
-            from .events import VisitorWentMissing
-            self.events.append(VisitorWentMissing(visitor_id=self.id))
-
-    def _transition_to_returning(self) -> None:
-        if self.state != VisitorState.RETURNING:
-            self.state = VisitorState.RETURNING
-            from .events import VisitorReturned
-            self.events.append(VisitorReturned(visitor_id=self.id))
-
-    def _transition_to_active(self) -> None:
-        self.state = VisitorState.ACTIVE
+    def _become_missing(self, current_time: datetime) -> None:
+        self.state = VisitorState.MISSING
+        self._end_current_session("timeout", current_time)
+        from .events import VisitorWentMissing
+        self.events.append(VisitorWentMissing(visitor_id=self.id))
 
     def _end_current_session(self, reason: str, ended_at: datetime) -> None:
         if self.current_session and self.current_session.is_active:
