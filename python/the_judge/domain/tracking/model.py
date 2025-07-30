@@ -143,24 +143,6 @@ class Visitor:
             frame_id=frame_id
         ))
 
-    def record_detection(self, collection_id: str, frame_id: str, is_new_collection: bool) -> dict:
-        current_time = datetime_utils.now()
-        
-        self.last_seen = current_time
-        self.frame_count += 1
-        
-        if is_new_collection:
-            self.seen_count += 1
-        
-        if not self.current_session or not self.current_session.is_active:
-            self.start_session(frame_id)
-        else:
-            self.current_session.add_frame()
-        
-        self._check_promotion()
-        
-        return self.record()
-
     def update_state(self, current_time: datetime) -> None:
         time_since_last_seen = current_time - self.last_seen
         

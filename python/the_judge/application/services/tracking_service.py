@@ -40,8 +40,22 @@ class TrackingService:
                     visitor = self._create_new_visitor()
                 composite.visitor = visitor
             
-            is_new_collection = collection.add_visitor_composite(composite.visitor.id, composite)
-            visitor_record = composite.visitor.record_detection(frame.collection_id, frame.id, is_new_collection)
+            is_new_in_collection = collection.add_visitor_composite(composite.visitor.id, composite)
+            
+            # Direct field updates
+            composite.visitor.last_seen = now()
+            composite.visitor.frame_count += 1
+            
+            if is_new_in_collection:
+                composite.visitor.seen_count += 1
+                composite.visitor._check_promotion()
+            
+            if not composite.visitor.current_session or not composite.visitor.current_session.is_active:
+                composite.visitor.start_session(frame.id)
+            else:
+                composite.visitor.current_session.add_frame()
+            
+            visitor_record = composite.visitor.record()
             
             self.visitor_registry.add_visitor_with_composite(composite.visitor, composite)
             dirty_visitors.add(composite.visitor)
