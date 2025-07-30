@@ -40,7 +40,7 @@ class TrackingService:
                     visitor = self._create_new_visitor()
                 composite.visitor = visitor
             
-            is_new_collection = collection.mark_visitor_seen(composite.visitor.id)
+            is_new_collection = collection.add_visitor_composite(composite.visitor.id, composite)
             visitor_record = composite.visitor.record_detection(frame.collection_id, frame.id, is_new_collection)
             
             self.visitor_registry.add_visitor_with_composite(composite.visitor, composite)

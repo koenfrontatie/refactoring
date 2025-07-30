@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from the_judge.common import datetime_utils
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Dict
 import numpy as np
 from enum import Enum
 import uuid
@@ -72,6 +72,7 @@ class VisitorCollection:
     id: str
     created_at: datetime
     visitor_ids_seen: Set[str] = field(default_factory=set)
+    composites: Dict[str, Composite] = field(default_factory=dict)
 
     def mark_visitor_seen(self, visitor_id: str) -> bool:
         if visitor_id in self.visitor_ids_seen:
@@ -81,6 +82,17 @@ class VisitorCollection:
 
     def has_visitor(self, visitor_id: str) -> bool:
         return visitor_id in self.visitor_ids_seen
+    
+    def add_visitor_composite(self, visitor_id: str, composite: Composite) -> bool:
+        is_new = self.mark_visitor_seen(visitor_id)
+        self.composites[visitor_id] = composite
+        return is_new
+    
+    def get_composite(self, visitor_id: str) -> Optional[Composite]:
+        return self.composites.get(visitor_id)
+    
+    def get_all_composites(self) -> List[Composite]:
+        return list(self.composites.values())
 
 class VisitorState(Enum):
     TEMPORARY = "temporary"
