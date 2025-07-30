@@ -125,6 +125,7 @@ class Visitor:
         session_id = str(uuid.uuid4())
         self.current_session = VisitorSession(
             id=session_id,
+            visitor_id=self.id,
             start_frame_id=frame_id,
             started_at=datetime_utils.now()
         )
@@ -257,6 +258,7 @@ class Visitor:
 @dataclass
 class VisitorSession:
     id: str
+    visitor_id: str
     start_frame_id: str
     started_at: datetime
     frame_count: int = 1
