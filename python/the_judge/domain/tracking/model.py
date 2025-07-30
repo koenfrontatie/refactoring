@@ -229,35 +229,3 @@ class VisitorSession:
         return None
 
 
-@dataclass
-class DetectionFrame:
-    """ DetectionFrame Aggregate Root - Groups all detections for a single frame """
-    id: str
-    collection_id: str
-    camera_name: str
-    captured_at: datetime
-    detections: List[Detection] = field(default_factory=list)
-    events: List = field(default_factory=list, init=False)
-
-    def add_detection(self, face_id: str, embedding_id: str, visitor_id: str, 
-                     visitor_record: dict, body_id: Optional[str] = None) -> Detection:
-        detection = Detection(
-            id=str(uuid.uuid4()),
-            frame_id=self.id,
-            face_id=face_id,
-            embedding_id=embedding_id,
-            visitor_id=visitor_id,
-            visitor_record=visitor_record,
-            captured_at=datetime_utils.now(),
-            body_id=body_id
-        )
-        self.detections.append(detection)
-        return detection
-
-    def get_visitor_ids(self) -> Set[str]:
-        return {detection.visitor_id for detection in self.detections}
-
-    def has_visitor(self, visitor_id: str) -> bool:
-        return visitor_id in self.get_visitor_ids()
-
-
