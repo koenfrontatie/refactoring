@@ -219,4 +219,3 @@ class VisitorSession:
             return self.ended_at - self.started_at
         return None
 
-

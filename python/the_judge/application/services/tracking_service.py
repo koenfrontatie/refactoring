@@ -30,49 +30,24 @@ class TrackingService:
         collection = self.visitor_registry.get_or_create_collection(frame.collection_id)
         recognized_composites = self.face_recognizer.recognize_faces(unknown_composites)
 
-        detections = []
         dirty_visitors = set()
         
+        # Process each composite and update visitor state
         for composite in recognized_composites:
-            if not composite.visitor:
-                visitor = self.face_recognizer.match_against_collection(composite, collection.composites)
-                if not visitor:
-                    visitor = self._create_new_visitor()
-                composite.visitor = visitor
-            
-            is_new_in_collection = self.visitor_registry.add_visitor_with_composite(composite.visitor, composite)
-            
-            # Direct field updates
-            composite.visitor.last_seen = now()
-            composite.visitor.frame_count += 1
-            
-            if is_new_in_collection:
-                composite.visitor.seen_count += 1
-                composite.visitor._check_promotion()
-            
-            if not composite.visitor.current_session or not composite.visitor.current_session.is_active:
-                composite.visitor.start_session(frame.id)
-            else:
-                composite.visitor.current_session.add_frame()
-            
-            visitor_record = composite.visitor.record()
+            self._ensure_composite_has_visitor(composite, collection)
+            is_new_in_collection = self.visitor_registry.add_composite(composite)
+            self._update_visitor_for_detection(composite, frame.id, is_new_in_collection)
             dirty_visitors.add(composite.visitor)
-            
-            detection = Detection(
-                id=str(uuid.uuid4()),
-                frame_id=frame.id,
-                face_id=composite.face.id,
-                embedding_id=composite.embedding.id,
-                visitor_id=composite.visitor.id,
-                visitor_record=visitor_record,
-                captured_at=now(),
-                body_id=composite.body.id if composite.body else None
-            )
-            detections.append(detection)
 
+        # Update all visitor states based on time
         expired_visitors, state_changed_visitors = self.visitor_registry.update_all_states()
-        
         dirty_visitors.update(state_changed_visitors)
+
+        # Create detections with current visitor state
+        detections = []
+        for composite in recognized_composites:
+            detection = self._create_detection(composite, frame)
+            detections.append(detection)
 
         self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors)
         self._cleanup_expired_visitors(uow, expired_visitors)
@@ -82,6 +57,38 @@ class TrackingService:
     def _create_new_visitor(self) -> Visitor:
         visitor = Visitor.create_new(get_name())
         return visitor
+
+    def _ensure_composite_has_visitor(self, composite: Composite, collection) -> None:
+        if not composite.visitor:
+            visitor = self.face_recognizer.match_against_collection(composite, collection.composites)
+            if not visitor:
+                visitor = self._create_new_visitor()
+            composite.visitor = visitor
+
+    def _update_visitor_for_detection(self, composite: Composite, frame_id: str, is_new_in_collection: bool) -> None:
+        composite.visitor.last_seen = now()
+        composite.visitor.frame_count += 1
+        
+        if is_new_in_collection:
+            composite.visitor.seen_count += 1
+            composite.visitor._check_promotion()
+        
+        if not composite.visitor.current_session or not composite.visitor.current_session.is_active:
+            composite.visitor.start_session(frame_id)
+        else:
+            composite.visitor.current_session.add_frame()
+
+    def _create_detection(self, composite: Composite, frame: Frame) -> Detection:
+        return Detection(
+            id=str(uuid.uuid4()),
+            frame_id=frame.id,
+            face_id=composite.face.id,
+            embedding_id=composite.embedding.id,
+            visitor_id=composite.visitor.id,
+            visitor_record=composite.visitor.record(),
+            captured_at=now(),
+            body_id=composite.body.id if composite.body else None
+        )
 
     def _persist_data(self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 
                            composites: List[Composite], detections: List[Detection], 

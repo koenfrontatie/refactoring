@@ -6,7 +6,9 @@ from the_judge.common.datetime_utils import now
 
 @dataclass
 class VisitorRegistry:
+    # Global visitor state across all collections
     active_visitors: Dict[str, Visitor] = field(default_factory=dict)
+    # Current collection for 10-second processing window
     current_collection: Optional[VisitorCollection] = None
 
     def get_or_create_collection(self, collection_id: str) -> VisitorCollection:
@@ -17,7 +19,8 @@ class VisitorRegistry:
             )
         return self.current_collection
 
-    def add_visitor_with_composite(self, visitor: Visitor, composite: Composite) -> bool:
+    def add_composite(self, composite: Composite) -> bool:
+        visitor = composite.visitor
         self.active_visitors[visitor.id] = visitor
         if self.current_collection:
             is_new = not any(c.visitor.id == visitor.id for c in self.current_collection.composites)
