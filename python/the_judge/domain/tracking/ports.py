@@ -44,10 +44,6 @@ class FaceRecognizerPort(ABC):
     @abstractmethod
     def match_against_collection(self, composite: Composite, collection: List[Composite]) -> Optional[Visitor]:
         pass
-    
-    @abstractmethod
-    def match_against_visitor(self, composite: Composite, visitor: Visitor) -> bool:
-        pass
 
 class FaceMLProvider(ABC):
     @abstractmethod

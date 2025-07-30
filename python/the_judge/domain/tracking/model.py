@@ -73,21 +73,6 @@ class Composite:
     body: Optional[Body] = None
     visitor: Optional[Visitor] = None
 
-@dataclass
-class DetectionCollection:
-    id: str
-    created_at: datetime
-    visitor_ids_seen: Set[str] = field(default_factory=set)
-
-    def mark_visitor_seen(self, visitor_id: str) -> bool:
-        if visitor_id in self.visitor_ids_seen:
-            return False
-        self.visitor_ids_seen.add(visitor_id)
-        return True
-
-    def has_visitor(self, visitor_id: str) -> bool:
-        return visitor_id in self.visitor_ids_seen
-
 class VisitorState(Enum):
     TEMPORARY = "temporary"
     ACTIVE = "active"

@@ -40,13 +40,15 @@ class TrackingService:
 
         for composite in recognized_composites:
             if not composite.visitor:
-                visitor = self._match_in_collection(composite, collection)
+                visitor = self.face_recognizer.match_against_collection(composite, collection)
                 if not visitor:
                     visitor = self._create_new_visitor()
                 composite.visitor = visitor
             
             is_new_collection = collection.mark_visitor_seen(composite.visitor.id)
             visitor_record = composite.visitor.record_detection(det_frame.collection_id, det_frame.id, is_new_collection)
+            
+            self.visitor_registry.add_visitor_with_composite(composite.visitor, composite)
             
             det_frame.add_detection(
                 face_id=composite.face.id,
@@ -59,17 +61,10 @@ class TrackingService:
         self._persist_frame_and_visitors(uow, det_frame, bodies, recognized_composites)
         self._publish_events(det_frame)
         self.bus.handle(FrameProcessed(det_frame.id, len(det_frame.detections)))
-
-    def _match_in_collection(self, composite: Composite, collection) -> Optional[Visitor]:
-        for visitor_id in collection.visitor_ids_seen:
-            visitor = self.visitor_registry.get_visitor(visitor_id)
-            if visitor and self.face_recognizer.match_against_visitor(composite, visitor):
-                return visitor
-        return None
+        self.process_timeouts()
 
     def _create_new_visitor(self) -> Visitor:
         visitor = Visitor.create_new(get_name())
-        self.visitor_registry.add_visitor(visitor)
         return visitor
 
     def _persist_frame_and_visitors(self, uow: AbstractUnitOfWork, frame: DetectionFrame, bodies: List[Body], composites: List[Composite]) -> None:
