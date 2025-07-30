@@ -1,10 +1,11 @@
 from __future__ import annotations  
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from the_judge.common import datetime_utils
-from typing import Optional
+from typing import Optional, List, Set
 import numpy as np
 from enum import Enum
+import uuid
 
 @dataclass
 class Frame:
@@ -47,9 +48,9 @@ class Detection:
     frame_id: str
     face_id: str
     embedding_id: str
-    body_id: Optional[str]
-    visitor_record: dict
+    visitor_id: str
     captured_at: datetime
+    body_id: Optional[str] = None
 
 @dataclass
 class Collection:
@@ -71,6 +72,21 @@ class Composite:
     body: Optional[Body] = None
     visitor: Optional[Visitor] = None
 
+@dataclass
+class DetectionCollection:
+    id: str
+    created_at: datetime
+    visitor_ids_seen: Set[str] = field(default_factory=set)
+
+    def mark_visitor_seen(self, visitor_id: str) -> bool:
+        if visitor_id in self.visitor_ids_seen:
+            return False
+        self.visitor_ids_seen.add(visitor_id)
+        return True
+
+    def has_visitor(self, visitor_id: str) -> bool:
+        return visitor_id in self.visitor_ids_seen
+
 class VisitorState(Enum):
     TEMPORARY = "temporary"
     ACTIVE = "active"
@@ -84,11 +100,82 @@ class Visitor:
     state: VisitorState
     seen_count: int
     frame_count: int
-    current_session_id: Optional[str]
     last_seen: datetime
     created_at: datetime
-    session_started_at: Optional[datetime] = None
-    
+    current_session: Optional[VisitorSession] = None
+    events: List = field(default_factory=list, init=False)
+
+    @classmethod
+    def create_new(cls, name: str) -> Visitor:
+        return cls(
+            id=str(uuid.uuid4()),
+            name=name,
+            state=VisitorState.TEMPORARY,
+            seen_count=0,
+            frame_count=0,
+            last_seen=datetime_utils.now(),
+            created_at=datetime_utils.now()
+        )
+
+    def start_session(self, frame_id: str) -> None:
+        if self.current_session and self.current_session.is_active:
+            raise ValueError("Cannot start new session while another is active")
+        
+        session_id = str(uuid.uuid4())
+        self.current_session = VisitorSession(
+            id=session_id,
+            start_frame_id=frame_id,
+            started_at=datetime_utils.now()
+        )
+        
+        from .events import SessionStarted
+        self.events.append(SessionStarted(
+            visitor_id=self.id,
+            session_id=session_id,
+            frame_id=frame_id
+        ))
+
+    def record_detection(self, collection_id: str, frame_id: str, is_new_collection: bool) -> None:
+        current_time = datetime_utils.now()
+        
+        self.last_seen = current_time
+        self.frame_count += 1
+        
+        if is_new_collection:
+            self.seen_count += 1
+        
+        if not self.current_session or not self.current_session.is_active:
+            self.start_session(frame_id)
+        else:
+            self.current_session.add_frame()
+        
+        self._check_promotion()
+
+    def update_state(self, current_time: datetime) -> None:
+        old_state = self.state
+        time_since_last_seen = current_time - self.last_seen
+        
+        if self._should_be_missing(time_since_last_seen):
+            self._transition_to_missing()
+        elif self._should_be_returning(current_time, time_since_last_seen):
+            self._transition_to_returning()
+        elif self.state == VisitorState.RETURNING:
+            self._transition_to_active()
+        
+        if old_state != VisitorState.MISSING and self.state == VisitorState.MISSING:
+            self._end_current_session("timeout", current_time)
+
+    def expire(self) -> None:
+        if self.current_session and self.current_session.is_active:
+            self._end_current_session("expired", datetime_utils.now())
+        
+        from .events import VisitorExpired
+        self.events.append(VisitorExpired(visitor_id=self.id))
+
+    @property
+    def should_be_removed(self) -> bool:
+        return (self.state == VisitorState.TEMPORARY and 
+                (datetime_utils.now() - self.last_seen) > timedelta(minutes=1))
 
     @property
     def time_since_creation(self) -> timedelta:
@@ -99,42 +186,57 @@ class Visitor:
         return datetime_utils.now() - self.last_seen
 
     @property
-    def is_missing(self) -> bool:
-        return self.time_since_last_seen > timedelta(minutes=1) 
-    
+    def current_session_id(self) -> Optional[str]:
+        return self.current_session.id if self.current_session else None
+
     @property
-    def should_be_promoted(self) -> bool:
-        return (self.state == VisitorState.TEMPORARY and self.seen_count >= 3)  
-    
-    @property
-    def should_be_removed(self) -> bool:
-        return (self.state == VisitorState.TEMPORARY and 
-                self.time_since_last_seen > timedelta(minutes=1))
-    
-    def _is_within_returning_window(self, current_time: datetime) -> bool:
-        return (self.session_started_at and 
-                current_time - self.session_started_at <= timedelta(seconds=30))
-    
-    def update_state(self, current_time: datetime) -> None:
-        """Update visitor state based on current time and business rules."""
-        # Promotion
+    def session_started_at(self) -> Optional[datetime]:
+        return self.current_session.started_at if self.current_session else None
+
+    def _check_promotion(self) -> None:
         if self.state == VisitorState.TEMPORARY and self.seen_count >= 3:
             self.state = VisitorState.ACTIVE
-            
-        # Missing check
-        elif current_time - self.last_seen > timedelta(minutes=1):
+            from .events import VisitorPromoted
+            self.events.append(VisitorPromoted(visitor_id=self.id))
+
+    def _should_be_missing(self, time_since_last_seen: timedelta) -> bool:
+        return time_since_last_seen > timedelta(minutes=1)
+
+    def _should_be_returning(self, current_time: datetime, time_since_last_seen: timedelta) -> bool:
+        if not self.current_session:
+            return False
+        
+        within_returning_window = (current_time - self.current_session.started_at) <= timedelta(seconds=30)
+        not_too_long_missing = time_since_last_seen <= timedelta(minutes=1)
+        
+        return (self.state in [VisitorState.MISSING, VisitorState.RETURNING] and 
+                within_returning_window and not_too_long_missing)
+
+    def _transition_to_missing(self) -> None:
+        if self.state != VisitorState.MISSING:
             self.state = VisitorState.MISSING
-            
-        # Returning logic - combine conditions with OR
-        elif (self.state in [VisitorState.MISSING, VisitorState.RETURNING] and
-              self._is_within_returning_window(current_time) and
-              current_time - self.last_seen <= timedelta(minutes=1)):
+            from .events import VisitorWentMissing
+            self.events.append(VisitorWentMissing(visitor_id=self.id))
+
+    def _transition_to_returning(self) -> None:
+        if self.state != VisitorState.RETURNING:
             self.state = VisitorState.RETURNING
-                
-        # Returning timeout
-        elif self.state == VisitorState.RETURNING:
-            self.state = VisitorState.ACTIVE
-    
+            from .events import VisitorReturned
+            self.events.append(VisitorReturned(visitor_id=self.id))
+
+    def _transition_to_active(self) -> None:
+        self.state = VisitorState.ACTIVE
+
+    def _end_current_session(self, reason: str, ended_at: datetime) -> None:
+        if self.current_session and self.current_session.is_active:
+            self.current_session.end("unknown", ended_at)
+            from .events import SessionEnded
+            self.events.append(SessionEnded(
+                visitor_id=self.id,
+                session_id=self.current_session.id,
+                reason=reason
+            ))
+
     def record(self) -> dict:
         return {
             'id': self.id,
@@ -152,29 +254,57 @@ class Visitor:
 @dataclass
 class VisitorSession:
     id: str
-    visitor_id: str
     start_frame_id: str
-    end_frame_id: Optional[str]
     started_at: datetime
-    ended_at: Optional[datetime]
-    captured_at: datetime
-    frame_count: int
-    
-    def end_session(self, end_frame_id: str, ended_at: datetime):
+    frame_count: int = 1
+    end_frame_id: Optional[str] = None
+    ended_at: Optional[datetime] = None
+
+    def add_frame(self) -> None:
+        self.frame_count += 1
+
+    def end(self, end_frame_id: str, ended_at: datetime) -> None:
         self.end_frame_id = end_frame_id
         self.ended_at = ended_at
-    
-    def increment_frame_count(self):
-        self.frame_count += 1
-    
+
     @property
     def is_active(self) -> bool:
         return self.ended_at is None
-    
+
     @property
     def duration(self) -> Optional[timedelta]:
         if self.ended_at:
             return self.ended_at - self.started_at
         return None
+
+
+@dataclass
+class DetectionFrame:
+    id: str
+    collection_id: str
+    camera_name: str
+    captured_at: datetime
+    detections: List[Detection] = field(default_factory=list)
+    events: List = field(default_factory=list, init=False)
+
+    def add_detection(self, face_id: str, embedding_id: str, visitor_id: str, 
+                     body_id: Optional[str] = None) -> Detection:
+        detection = Detection(
+            id=str(uuid.uuid4()),
+            frame_id=self.id,
+            face_id=face_id,
+            embedding_id=embedding_id,
+            visitor_id=visitor_id,
+            captured_at=datetime_utils.now(),
+            body_id=body_id
+        )
+        self.detections.append(detection)
+        return detection
+
+    def get_visitor_ids(self) -> Set[str]:
+        return {detection.visitor_id for detection in self.detections}
+
+    def has_visitor(self, visitor_id: str) -> bool:
+        return visitor_id in self.get_visitor_ids()
 
 
