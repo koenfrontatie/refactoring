@@ -69,6 +69,7 @@ visitors = Table(
     Column('name', String(100)),
     Column('state', Enum(VisitorState)),
     Column('seen_count', Integer, default=0),
+    Column('frame_count', Integer, default=0),
     Column('current_session_id', String(36), index=True),
     Column('last_seen', DateTime),
     Column('created_at', DateTime),

@@ -23,25 +23,35 @@ class TrackedVisitors:
 
     def ingest_composites(self, composites: List[Composite], collection_id: str, frame_id: str) -> None:
         is_new_collection = collection_id != self.latest_collection_id
+        visitors_seen_in_collection = set()  # Track who we've seen this collection
         
         for composite in composites:
             visitor = composite.visitor
+            is_first_time_in_collection = visitor.id not in visitors_seen_in_collection
+            
             if visitor.id not in self.visitors:
-                # New visitor - first time seeing them
+                # New visitor - always count
                 visitor.seen_count = 1
+                visitor.frame_count = 1
                 visitor.last_seen = now()
                 # Start new session
                 session = self._start_session(visitor.id, frame_id)
                 visitor.current_session_id = session.id
+                visitor.session_started_at = session.started_at
                 self.visitors[visitor.id] = visitor
+                visitors_seen_in_collection.add(visitor.id)
             else:
-                # Existing visitor - update based on collection
-                if is_new_collection:
-                    self.visitors[visitor.id].seen_count += 1
+                # Existing visitor
+                if is_new_collection and is_first_time_in_collection:
+                    self.visitors[visitor.id].seen_count += 1  # Only increment once per collection
                 
+                # Always increment frame count for every detection
+                self.visitors[visitor.id].frame_count += 1
+                
+                # Always update timing regardless
                 self.visitors[visitor.id].last_seen = now()
-                # Update existing session
                 self._update_session(visitor.id, frame_id)
+                visitors_seen_in_collection.add(visitor.id)
         
         if is_new_collection:
             self.latest_collection_id = collection_id
@@ -182,7 +192,6 @@ class TrackingService:
         recognized_composites = self.face_recognizer.recognize_faces(unknown_composites)
 
         # Process each composite
-        processed_composites = []
         for composite in recognized_composites:
             if not composite.visitor:    
                 # Try matching against current collection first
@@ -192,20 +201,19 @@ class TrackingService:
                     visitor = self._create_new_visitor(composite)
                 composite.visitor = visitor
 
-            # Only add to collection if not already there (prevent duplicates)
+            # Add to collection for within-collection deduplication
             if not self.cached_collection.has_visitor(composite.visitor.id):
                 self.cached_collection.add_composite(composite)
-                processed_composites.append(composite)
 
-        # Update visitor tracking state
-        if processed_composites:
-            self.tracked_visitors.ingest_composites(processed_composites, frame.collection_id, frame.id)
+        # Update visitor tracking state for ALL recognized composites
+        if recognized_composites:
+            self.tracked_visitors.ingest_composites(recognized_composites, frame.collection_id, frame.id)
 
         # Persist data
-        self._persist_frame_data(uow, frame, processed_composites, bodies)
+        self._persist_frame_data(uow, frame, recognized_composites, bodies)
 
         # Publish events
-        self.bus.handle(FrameProcessed(frame.id, len(processed_composites)))
+        self.bus.handle(FrameProcessed(frame.id, len(recognized_composites)))
 
     def _ensure_collection_buffer(self, collection_id: str) -> None:
         if self.cached_collection is None or self.cached_collection.collection_id != collection_id:
@@ -227,6 +235,7 @@ class TrackingService:
             name=get_name(),
             state=VisitorState.TEMPORARY,
             seen_count=0,  # Will be set to 1 by TrackedVisitors
+            frame_count=0,  # Will be set to 1 by TrackedVisitors
             current_session_id=None,
             last_seen=now(),
             created_at=now()

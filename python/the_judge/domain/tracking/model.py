@@ -83,6 +83,7 @@ class Visitor:
     name: str
     state: VisitorState
     seen_count: int
+    frame_count: int
     current_session_id: Optional[str]
     last_seen: datetime
     created_at: datetime
@@ -140,6 +141,7 @@ class Visitor:
             'name': self.name,
             'state': self.state.value, 
             'seen_count': self.seen_count,
+            'frame_count': self.frame_count,
             'current_session_id': self.current_session_id,
             'last_seen': datetime_utils.to_formatted_string(self.last_seen),
             'created_at': datetime_utils.to_formatted_string(self.created_at),
