@@ -71,22 +71,10 @@ class Composite:
 class VisitorCollection:
     id: str
     created_at: datetime
-    visitor_ids_seen: Set[str] = field(default_factory=set)
     composites: Dict[str, Composite] = field(default_factory=dict)
 
-    def mark_visitor_seen(self, visitor_id: str) -> bool:
-        if visitor_id in self.visitor_ids_seen:
-            return False
-        self.visitor_ids_seen.add(visitor_id)
-        return True
-
-    def has_visitor(self, visitor_id: str) -> bool:
-        return visitor_id in self.visitor_ids_seen
-    
-    def add_visitor_composite(self, visitor_id: str, composite: Composite) -> bool:
-        is_new = self.mark_visitor_seen(visitor_id)
+    def add_visitor_composite(self, visitor_id: str, composite: Composite) -> None:
         self.composites[visitor_id] = composite
-        return is_new
     
     def get_composite(self, visitor_id: str) -> Optional[Composite]:
         return self.composites.get(visitor_id)

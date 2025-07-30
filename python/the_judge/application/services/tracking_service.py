@@ -76,7 +76,7 @@ class TrackingService:
         
         dirty_visitors.update(state_changed_visitors)
 
-        self._persist_everything(uow, frame, bodies, recognized_composites, detections, dirty_visitors)
+        self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors)
         self._cleanup_expired_visitors(uow, expired_visitors)
         self._publish_visitor_events(recognized_composites)
         self.bus.handle(FrameProcessed(frame.id, len(detections)))
@@ -85,7 +85,7 @@ class TrackingService:
         visitor = Visitor.create_new(get_name())
         return visitor
 
-    def _persist_everything(self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 
+    def _persist_data(self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 
                            composites: List[Composite], detections: List[Detection], 
                            dirty_visitors: set) -> None:
         uow.repository.add(frame)
