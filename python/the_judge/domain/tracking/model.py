@@ -73,15 +73,6 @@ class VisitorCollection:
     created_at: datetime
     composites: Dict[str, Composite] = field(default_factory=dict)
 
-    def add_visitor_composite(self, visitor_id: str, composite: Composite) -> None:
-        self.composites[visitor_id] = composite
-    
-    def get_composite(self, visitor_id: str) -> Optional[Composite]:
-        return self.composites.get(visitor_id)
-    
-    def get_all_composites(self) -> List[Composite]:
-        return list(self.composites.values())
-
 class VisitorState(Enum):
     TEMPORARY = "temporary"
     ACTIVE = "active"

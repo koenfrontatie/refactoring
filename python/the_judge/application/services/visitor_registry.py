@@ -17,10 +17,13 @@ class VisitorRegistry:
             )
         return self.current_collection
 
-    def add_visitor_with_composite(self, visitor: Visitor, composite: Composite) -> None:
+    def add_visitor_with_composite(self, visitor: Visitor, composite: Composite) -> bool:
         self.active_visitors[visitor.id] = visitor
         if self.current_collection:
+            is_new = visitor.id not in self.current_collection.composites
             self.current_collection.composites[visitor.id] = composite
+            return is_new
+        return False
 
     def get_visitor(self, visitor_id: str) -> Optional[Visitor]:
         return self.active_visitors.get(visitor_id)

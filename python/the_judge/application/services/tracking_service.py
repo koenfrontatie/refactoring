@@ -35,12 +35,12 @@ class TrackingService:
         
         for composite in recognized_composites:
             if not composite.visitor:
-                visitor = self.face_recognizer.match_against_collection(composite, collection)
+                visitor = self.face_recognizer.match_against_collection(composite, list(collection.composites.values()))
                 if not visitor:
                     visitor = self._create_new_visitor()
                 composite.visitor = visitor
             
-            is_new_in_collection = collection.add_visitor_composite(composite.visitor.id, composite)
+            is_new_in_collection = self.visitor_registry.add_visitor_with_composite(composite.visitor, composite)
             
             # Direct field updates
             composite.visitor.last_seen = now()
@@ -56,8 +56,6 @@ class TrackingService:
                 composite.visitor.current_session.add_frame()
             
             visitor_record = composite.visitor.record()
-            
-            self.visitor_registry.add_visitor_with_composite(composite.visitor, composite)
             dirty_visitors.add(composite.visitor)
             
             detection = Detection(
