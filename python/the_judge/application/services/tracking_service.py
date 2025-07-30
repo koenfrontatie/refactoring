@@ -27,14 +27,14 @@ class TrackingService:
         self.visitor_registry = VisitorRegistry()
 
     def handle_frame(self, uow: AbstractUnitOfWork, frame: Frame, unknown_composites: List[Composite], bodies: List[Body]) -> None:
-        frame_obj = DetectionFrame(
+        det_frame = DetectionFrame(
             id=frame.id,
             collection_id=frame.collection_id,
             camera_name=frame.camera_name,
             captured_at=frame.captured_at
         )
 
-        collection = self.visitor_registry.get_or_create_collection(frame_obj.collection_id)
+        collection = self.visitor_registry.get_or_create_collection(det_frame.collection_id)
 
         recognized_composites = self.face_recognizer.recognize_faces(unknown_composites)
 
@@ -46,9 +46,9 @@ class TrackingService:
                 composite.visitor = visitor
             
             is_new_collection = collection.mark_visitor_seen(composite.visitor.id)
-            visitor_record = composite.visitor.record_detection(frame_obj.collection_id, frame_obj.id, is_new_collection)
+            visitor_record = composite.visitor.record_detection(det_frame.collection_id, det_frame.id, is_new_collection)
             
-            frame_obj.add_detection(
+            det_frame.add_detection(
                 face_id=composite.face.id,
                 embedding_id=composite.embedding.id,
                 visitor_id=composite.visitor.id,
@@ -56,9 +56,9 @@ class TrackingService:
                 body_id=composite.body.id if composite.body else None
             )
 
-        self._persist_frame_and_visitors(uow, frame_obj, bodies, recognized_composites)
-        self._publish_events(frame_obj)
-        self.bus.handle(FrameProcessed(frame_obj.id, len(frame_obj.detections)))
+        self._persist_frame_and_visitors(uow, det_frame, bodies, recognized_composites)
+        self._publish_events(det_frame)
+        self.bus.handle(FrameProcessed(det_frame.id, len(det_frame.detections)))
 
     def _match_in_collection(self, composite: Composite, collection) -> Optional[Visitor]:
         for visitor_id in collection.visitor_ids_seen:

@@ -54,6 +54,21 @@ class FaceRecognizer(FaceRecognizerPort):
                 return existing.visitor
         return None
     
+    def match_against_visitor(self, composite: Composite, visitor: Visitor) -> bool:
+        if not self._valid_composite(composite):
+            return False
+            
+        with self.uow_factory() as uow:
+            latest_detection = uow.repository.get_by(Detection, visitor_id=visitor.id)
+            if not latest_detection:
+                return False
+                
+            visitor_embedding = uow.repository.get(FaceEmbedding, latest_detection.embedding_id)
+            if not visitor_embedding or visitor_embedding.normed_embedding is None:
+                return False
+                
+            return self._sim(composite.embedding.normed_embedding, visitor_embedding.normed_embedding) > self.threshold
+    
     def _find_visitor(
         self, 
         query_composite: Composite, 

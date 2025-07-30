@@ -10,8 +10,8 @@ from the_judge.infrastructure.tracking.face_recognizer import FaceRecognizer
 from the_judge.infrastructure.tracking.body_detector import BodyDetector
 from the_judge.infrastructure.tracking.face_body_matcher import FaceBodyMatcher
 from the_judge.infrastructure.tracking.frame_collector import FrameCollector
-from the_judge.application.processing_service import FrameProcessingService
-from the_judge.application.tracking_service import TrackingService
+from the_judge.application.services.processing_service import FrameProcessingService
+from the_judge.application.services.tracking_service import TrackingService
 from the_judge.application.messagebus import MessageBus
 from the_judge.domain.tracking.events import FrameSaved, FrameProcessed
 from the_judge.entrypoints.socket_client import SocketIOClient
