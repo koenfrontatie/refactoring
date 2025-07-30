@@ -35,7 +35,7 @@ class TrackingService:
         
         for composite in recognized_composites:
             if not composite.visitor:
-                visitor = self.face_recognizer.match_against_collection(composite, list(collection.composites.values()))
+                visitor = self.face_recognizer.match_against_collection(composite, collection.composites)
                 if not visitor:
                     visitor = self._create_new_visitor()
                 composite.visitor = visitor

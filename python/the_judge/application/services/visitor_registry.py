@@ -20,8 +20,8 @@ class VisitorRegistry:
     def add_visitor_with_composite(self, visitor: Visitor, composite: Composite) -> bool:
         self.active_visitors[visitor.id] = visitor
         if self.current_collection:
-            is_new = visitor.id not in self.current_collection.composites
-            self.current_collection.composites[visitor.id] = composite
+            is_new = not any(c.visitor.id == visitor.id for c in self.current_collection.composites)
+            self.current_collection.composites.append(composite)
             return is_new
         return False
 
@@ -33,7 +33,7 @@ class VisitorRegistry:
 
     def remove_visitor(self, visitor_id: str) -> Optional[Visitor]:
         if self.current_collection:
-            self.current_collection.composites.pop(visitor_id, None)
+            self.current_collection.composites = [c for c in self.current_collection.composites if c.visitor.id != visitor_id]
         return self.active_visitors.pop(visitor_id, None)
 
     def update_all_states(self) -> tuple[List[Visitor], List[Visitor]]:

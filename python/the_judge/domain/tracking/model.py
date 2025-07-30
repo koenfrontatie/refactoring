@@ -71,7 +71,7 @@ class Composite:
 class VisitorCollection:
     id: str
     created_at: datetime
-    composites: Dict[str, Composite] = field(default_factory=dict)
+    composites: List[Composite] = field(default_factory=list)
 
 class VisitorState(Enum):
     TEMPORARY = "temporary"
