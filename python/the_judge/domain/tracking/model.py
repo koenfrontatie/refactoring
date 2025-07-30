@@ -49,6 +49,7 @@ class Detection:
     face_id: str
     embedding_id: str
     visitor_id: str
+    visitor_record: dict
     captured_at: datetime
     body_id: Optional[str] = None
 
@@ -135,7 +136,7 @@ class Visitor:
             frame_id=frame_id
         ))
 
-    def record_detection(self, collection_id: str, frame_id: str, is_new_collection: bool) -> None:
+    def record_detection(self, collection_id: str, frame_id: str, is_new_collection: bool) -> dict:
         current_time = datetime_utils.now()
         
         self.last_seen = current_time
@@ -150,6 +151,8 @@ class Visitor:
             self.current_session.add_frame()
         
         self._check_promotion()
+        
+        return self.record()
 
     def update_state(self, current_time: datetime) -> None:
         old_state = self.state
@@ -280,6 +283,7 @@ class VisitorSession:
 
 @dataclass
 class DetectionFrame:
+    """ DetectionFrame Aggregate Root - Groups all detections for a single frame """
     id: str
     collection_id: str
     camera_name: str
@@ -288,13 +292,14 @@ class DetectionFrame:
     events: List = field(default_factory=list, init=False)
 
     def add_detection(self, face_id: str, embedding_id: str, visitor_id: str, 
-                     body_id: Optional[str] = None) -> Detection:
+                     visitor_record: dict, body_id: Optional[str] = None) -> Detection:
         detection = Detection(
             id=str(uuid.uuid4()),
             frame_id=self.id,
             face_id=face_id,
             embedding_id=embedding_id,
             visitor_id=visitor_id,
+            visitor_record=visitor_record,
             captured_at=datetime_utils.now(),
             body_id=body_id
         )
