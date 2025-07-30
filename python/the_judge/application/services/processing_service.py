@@ -11,7 +11,7 @@ from the_judge.domain.tracking.model import Frame, Face, Body, Visitor, Composit
 from the_judge.domain.tracking.ports import FaceDetectorPort, BodyDetectorPort, FaceBodyMatcherPort
 from the_judge.domain.tracking.events import FrameProcessed, FrameSaved
 from the_judge.application.messagebus import MessageBus
-from the_judge.application.tracking_service import TrackingService
+from the_judge.application.services.tracking_service import TrackingService
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.settings import get_settings
 from the_judge.common.logger import setup_logger

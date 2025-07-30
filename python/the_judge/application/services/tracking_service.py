@@ -31,6 +31,8 @@ class TrackingService:
         recognized_composites = self.face_recognizer.recognize_faces(unknown_composites)
 
         detections = []
+        dirty_visitors = set()
+        
         for composite in recognized_composites:
             if not composite.visitor:
                 visitor = self.face_recognizer.match_against_collection(composite, collection)
@@ -42,6 +44,7 @@ class TrackingService:
             visitor_record = composite.visitor.record_detection(frame.collection_id, frame.id, is_new_collection)
             
             self.visitor_registry.add_visitor_with_composite(composite.visitor, composite)
+            dirty_visitors.add(composite.visitor)
             
             detection = Detection(
                 id=str(uuid.uuid4()),
@@ -55,16 +58,21 @@ class TrackingService:
             )
             detections.append(detection)
 
-        self._persist_frame_and_visitors(uow, frame, bodies, recognized_composites, detections)
-        self._publish_events(recognized_composites)
+        expired_visitors, state_changed_visitors = self.handle_visitor_timeouts_without_persist()
+        dirty_visitors.update(state_changed_visitors)
+
+        self._persist_everything(uow, frame, bodies, recognized_composites, detections, dirty_visitors)
+        self._cleanup_expired_visitors(uow, expired_visitors)
+        self._publish_visitor_events(recognized_composites)
         self.bus.handle(FrameProcessed(frame.id, len(detections)))
-        self.handle_visitor_timeouts(uow)
 
     def _create_new_visitor(self) -> Visitor:
         visitor = Visitor.create_new(get_name())
         return visitor
 
-    def _persist_frame_and_visitors(self, uow: AbstractUnitOfWork, frame: DetectionFrame, bodies: List[Body], composites: List[Composite]) -> None:
+    def _persist_everything(self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 
+                           composites: List[Composite], detections: List[Detection], 
+                           dirty_visitors: set) -> None:
         uow.repository.add(frame)
         
         for body in bodies:
@@ -73,39 +81,28 @@ class TrackingService:
         for composite in composites:
             uow.repository.add(composite.embedding)
             uow.repository.add(composite.face)
-            
-            visitor = self.visitor_registry.get_visitor(composite.visitor.id)
-            if visitor:
-                uow.repository.merge(visitor)
-                
-                if visitor.current_session:
-                    uow.repository.merge(visitor.current_session)
         
-        for detection in frame.detections:
+        for detection in detections:
             uow.repository.add(detection)
-
-    def _publish_events(self, frame: DetectionFrame) -> None:
-        for visitor_id in frame.get_visitor_ids():
-            visitor = self.visitor_registry.get_visitor(visitor_id)
-            if visitor:
-                for event in visitor.events:
-                    self.bus.handle(event)
-                visitor.events.clear()
-
-        for event in frame.events:
-            self.bus.handle(event)
-        frame.events.clear()
-
-    def handle_visitor_timeouts(self, uow: AbstractUnitOfWork) -> int:
-        expired_visitors = self.visitor_registry.update_all_states()
         
-        if not expired_visitors:
-            return 0
-            
+        for visitor in dirty_visitors:
+            uow.repository.merge(visitor)
+            if visitor.current_session:
+                uow.repository.merge(visitor.current_session)
+
+    def _publish_visitor_events(self, composites: List[Composite]) -> None:
+        for composite in composites:
+            if composite.visitor:
+                for event in composite.visitor.events:
+                    self.bus.handle(event)
+                composite.visitor.events.clear()
+
+    def handle_visitor_timeouts_without_persist(self) -> tuple[List[Visitor], List[Visitor]]:
+        return self.visitor_registry.update_all_states()
+
+    def _cleanup_expired_visitors(self, uow: AbstractUnitOfWork, expired_visitors: List[Visitor]) -> None:
         for visitor in expired_visitors:
             self._cleanup_visitor_data(uow, visitor)
-        
-        return len(expired_visitors)
 
     def _cleanup_visitor_data(self, uow: AbstractUnitOfWork, visitor: Visitor) -> None:
         for event in visitor.events:
