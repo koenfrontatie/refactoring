@@ -58,30 +58,44 @@ class TrackingRepository:
         return entity
 
     def get(self, entity_class: Type, entity_id: str) -> Optional[Any]:
-        return (
+        entity = (
             self.session.query(entity_class)
             .filter_by(id=entity_id)
             .first()
         )
+        if entity and entity_class == Visitor:
+            self._ensure_visitor_events(entity)
+        return entity
 
     def list(self, entity_class: Type) -> List[Any]:
-        return self.session.query(entity_class).all()
+        entities = self.session.query(entity_class).all()
+        if entity_class == Visitor:
+            for entity in entities:
+                self._ensure_visitor_events(entity)
+        return entities
 
     def get_by(self, entity_class: Type, **filters) -> Optional[Any]:
         """Get first entity matching the given filters."""
-        return (
+        entity = (
             self.session.query(entity_class)
             .filter_by(**filters)
             .first()
         )
+        if entity and entity_class == Visitor:
+            self._ensure_visitor_events(entity)
+        return entity
     
     def list_by(self, entity_class: Type, **filters) -> List[Any]:
         """Get all entities matching the given filters."""
-        return (
+        entities = (
             self.session.query(entity_class)
             .filter_by(**filters)
             .all()
         )
+        if entity_class == Visitor:
+            for entity in entities:
+                self._ensure_visitor_events(entity)
+        return entities
     
     def delete(self, entity: Any) -> None:
         """Delete an entity from the database."""
@@ -120,3 +134,8 @@ class TrackingRepository:
             if name in cols:
                 return cols[name]
         raise ValueError(f"{cls} lacks captured_at and pk columns")
+    
+    def _ensure_visitor_events(self, visitor: Visitor) -> None:
+        """Ensure visitor has events list initialized after loading from DB."""
+        if not hasattr(visitor, 'events') or visitor.events is None:
+            visitor.events = []

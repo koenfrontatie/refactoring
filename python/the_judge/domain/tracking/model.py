@@ -89,7 +89,7 @@ class Visitor:
     last_seen: datetime
     created_at: datetime
     current_session: Optional[VisitorSession] = None
-    events: List = field(default_factory=list, init=False)
+    events: List = field(default_factory=list, init=False, compare=False)
 
     @classmethod
     def create_new(cls, name: str) -> Visitor:
@@ -112,7 +112,8 @@ class Visitor:
             id=session_id,
             visitor_id=self.id,
             start_frame_id=frame_id,
-            started_at=datetime_utils.now()
+            started_at=datetime_utils.now(),
+            captured_at=datetime_utils.now()
         )
         
         from .events import SessionStarted
@@ -198,6 +199,7 @@ class VisitorSession:
     visitor_id: str
     start_frame_id: str
     started_at: datetime
+    captured_at: datetime
     frame_count: int = 1
     end_frame_id: Optional[str] = None
     ended_at: Optional[datetime] = None

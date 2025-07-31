@@ -30,12 +30,12 @@ class TrackingService:
             self, uow: AbstractUnitOfWork, 
             frame: Frame, 
             paired_composites: List[Composite], 
-            unmatched_bodies: List[Body]) -> None:
+            bodies: List[Body]) -> None:
         
         collection = self.visitor_registry.get_or_create_collection(frame.collection_id)
         recognized_composites = self.face_recognizer.recognize_faces(paired_composites)
 
-        dirty_visitors = {}  # visitor_id -> visitor
+        dirty_visitors = {}  
         
         # Process each composite and update visitor state
         for composite in recognized_composites:
@@ -55,7 +55,7 @@ class TrackingService:
             detection = self._create_detection(composite, frame)
             detections.append(detection)
 
-        self._persist_data(uow, frame, unmatched_bodies, recognized_composites, detections, dirty_visitors.values())
+        self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors.values())
         self._cleanup_expired_visitors(uow, expired_visitors)
         self._publish_visitor_events(recognized_composites)
         self.bus.handle(FrameProcessed(frame.id, len(detections)))

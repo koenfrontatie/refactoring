@@ -58,6 +58,7 @@ detections = Table(
     Column('embedding_id', String(36), nullable=False, index=True), 
     Column('body_id', String(36), index=True),
     Column('visitor_id', String(36), nullable=False, index=True),
+    Column('visitor_record', JSON, nullable=False),
     Column('captured_at', DateTime)
 )
 
