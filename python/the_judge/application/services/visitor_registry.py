@@ -9,7 +9,7 @@ class VisitorRegistry:
     # Tracks global visitor state.
     active_visitors: Dict[str, Visitor] = field(default_factory=dict)
     
-    # Visitor composites from all frames in latest collection timeframe.
+    # Visitor composites from all cameras in latest collection timeframe.
     current_collection: Optional[VisitorCollection] = None
 
     def get_or_create_collection(self, collection_id: str) -> VisitorCollection:

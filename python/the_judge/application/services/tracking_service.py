@@ -2,7 +2,7 @@ from typing import List, Dict, Optional, Callable
 from randomname import get_name
 import uuid
 
-from the_judge.domain.tracking.model import DetectionFrame, Visitor, Detection, Face, FaceEmbedding, Body, Composite, Frame
+from the_judge.domain.tracking.model import Visitor, Detection, Face, FaceEmbedding, Body, Composite, Frame
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.application.messagebus import MessageBus
