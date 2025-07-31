@@ -35,18 +35,19 @@ class TrackingService:
         collection = self.visitor_registry.get_or_create_collection(frame.collection_id)
         recognized_composites = self.face_recognizer.recognize_faces(paired_composites)
 
-        dirty_visitors = set()
+        dirty_visitors = {}  # visitor_id -> visitor
         
         # Process each composite and update visitor state
         for composite in recognized_composites:
             self._ensure_composite_has_visitor(composite, collection)
             is_new_in_collection = self.visitor_registry.add_composite(composite)
             self._update_visitor_for_detection(composite, frame.id, is_new_in_collection)
-            dirty_visitors.add(composite.visitor)
+            dirty_visitors[composite.visitor.id] = composite.visitor
 
         # Update all visitor states based on time (also returns visitors that have timed out)
         expired_visitors, state_changed_visitors = self.visitor_registry.update_all_states()
-        dirty_visitors.update(state_changed_visitors)
+        for visitor in state_changed_visitors:
+            dirty_visitors[visitor.id] = visitor
 
         # Create detections with current visitor state
         detections = []
@@ -54,7 +55,7 @@ class TrackingService:
             detection = self._create_detection(composite, frame)
             detections.append(detection)
 
-        self._persist_data(uow, frame, unmatched_bodies, recognized_composites, detections, dirty_visitors)
+        self._persist_data(uow, frame, unmatched_bodies, recognized_composites, detections, dirty_visitors.values())
         self._cleanup_expired_visitors(uow, expired_visitors)
         self._publish_visitor_events(recognized_composites)
         self.bus.handle(FrameProcessed(frame.id, len(detections)))
