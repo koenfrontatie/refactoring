@@ -26,9 +26,14 @@ class TrackingService:
         self.bus = bus
         self.visitor_registry = VisitorRegistry()
 
-    def handle_frame(self, uow: AbstractUnitOfWork, frame: Frame, unknown_composites: List[Composite], bodies: List[Body]) -> None:
+    def handle_frame(
+            self, uow: AbstractUnitOfWork, 
+            frame: Frame, 
+            paired_composites: List[Composite], 
+            unmatched_bodies: List[Body]) -> None:
+        
         collection = self.visitor_registry.get_or_create_collection(frame.collection_id)
-        recognized_composites = self.face_recognizer.recognize_faces(unknown_composites)
+        recognized_composites = self.face_recognizer.recognize_faces(paired_composites)
 
         dirty_visitors = set()
         
@@ -39,7 +44,7 @@ class TrackingService:
             self._update_visitor_for_detection(composite, frame.id, is_new_in_collection)
             dirty_visitors.add(composite.visitor)
 
-        # Update all visitor states based on time
+        # Update all visitor states based on time (also returns visitors that have timed out)
         expired_visitors, state_changed_visitors = self.visitor_registry.update_all_states()
         dirty_visitors.update(state_changed_visitors)
 
@@ -49,7 +54,7 @@ class TrackingService:
             detection = self._create_detection(composite, frame)
             detections.append(detection)
 
-        self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors)
+        self._persist_data(uow, frame, unmatched_bodies, recognized_composites, detections, dirty_visitors)
         self._cleanup_expired_visitors(uow, expired_visitors)
         self._publish_visitor_events(recognized_composites)
         self.bus.handle(FrameProcessed(frame.id, len(detections)))
@@ -65,7 +70,11 @@ class TrackingService:
                 visitor = self._create_new_visitor()
             composite.visitor = visitor
 
-    def _update_visitor_for_detection(self, composite: Composite, frame_id: str, is_new_in_collection: bool) -> None:
+    def _update_visitor_for_detection(
+            self, composite: Composite, 
+            frame_id: str, 
+            is_new_in_collection: bool) -> None:
+        
         composite.visitor.last_seen = now()
         composite.visitor.frame_count += 1
         
@@ -90,9 +99,11 @@ class TrackingService:
             body_id=composite.body.id if composite.body else None
         )
 
-    def _persist_data(self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 
-                           composites: List[Composite], detections: List[Detection], 
-                           dirty_visitors: set) -> None:
+    def _persist_data(
+            self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 
+            composites: List[Composite], detections: List[Detection], 
+            dirty_visitors: set) -> None:
+        
         uow.repository.add(frame)
         
         for body in bodies:

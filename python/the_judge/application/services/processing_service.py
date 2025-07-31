@@ -61,9 +61,12 @@ class FrameProcessingService:
 
             paired_composites = self.face_body_matcher.match_faces_to_bodies(composites, bodies)
             
+            matched_body_ids = {comp.body.id for comp in paired_composites if comp.body}
+            unmatched_bodies = [body for body in bodies if body.id not in matched_body_ids]
+
             with self.uow_factory() as uow:
                 uow.repository.add(frame)
-                self.tracking_service.handle_frame(uow, frame, paired_composites)
+                self.tracking_service.handle_frame(uow, frame, paired_composites, unmatched_bodies)
                 logger.info("Processed frame %s from collection %s: %d faces, %d bodies", frame.id, frame.collection_id, len(composites), len(bodies))
                 uow.commit()
 

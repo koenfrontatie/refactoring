@@ -1,13 +1,14 @@
 from dataclasses import dataclass
 from abc import ABC
 from typing import Optional
+from .model import Frame
 
 class Event(ABC):
     pass
 
 @dataclass
 class FrameSaved(Event):
-    frame_id: str
+    frame: Frame
 
 @dataclass
 class FrameProcessed(Event):

@@ -70,11 +70,11 @@ class CameraClient:
     async def _on_collect(self, payload):
         collection_id = payload.get('collection_id')
         try:
-            jpg = self.read()
+            bytes = self.read()
             await self.sio.emit('camera.frame', {
                 'collection_id': collection_id,
                 'camera_name': self.device_id,
-                'frame_data': jpg
+                'frame_data': bytes
             })
             print(f"[{self.device_id}] Sent frame '{collection_id}'")
         except Exception as e:
