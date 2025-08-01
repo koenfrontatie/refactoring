@@ -104,6 +104,9 @@ class TrackingService:
                 )
                 uow.repository.add(new_session)
                 
+                # Set the current session ID on the visitor
+                visitor.current_session_id = session_id
+                
                 # Add event
                 visitor.events.append(SessionStarted(
                     visitor_id=visitor.id,
@@ -114,6 +117,9 @@ class TrackingService:
                 # Update existing session
                 active_session.add_frame()
                 uow.repository.merge(active_session)
+                
+                # Ensure the current session ID is set
+                visitor.current_session_id = active_session.id
             
             uow.commit()
 
@@ -124,7 +130,7 @@ class TrackingService:
             face_id=composite.face.id,
             embedding_id=composite.embedding.id,
             visitor_id=composite.visitor.id,
-            visitor_record=composite.visitor.record(),
+            visitor_record=composite.visitor.record(),  # Already includes current_session_id
             captured_at=now(),
             body_id=composite.body.id if composite.body else None
         )
@@ -182,6 +188,9 @@ class TrackingService:
             # End the session
             active_session.end("expired", now())
             uow.repository.merge(active_session)
+            
+            # Clear the current session ID on the visitor
+            visitor.current_session_id = None
             
             # Add SessionEnded event
             self.bus.handle(SessionEnded(

@@ -97,5 +97,7 @@ def start_mappers():
     mapper_registry.map_imperatively(FaceEmbedding, face_embeddings)
     mapper_registry.map_imperatively(Body, bodies)
     mapper_registry.map_imperatively(Detection, detections)
-    mapper_registry.map_imperatively(Visitor, visitors)
     mapper_registry.map_imperatively(VisitorSession, sessions)
+    
+    # Map Visitor without any relationship to VisitorSession
+    mapper_registry.map_imperatively(Visitor, visitors)

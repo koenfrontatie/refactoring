@@ -88,6 +88,7 @@ class Visitor:
     frame_count: int
     last_seen: datetime
     created_at: datetime
+    current_session_id: Optional[str] = None  # Just store the ID, not the object
     events: List = field(default_factory=list, init=False, compare=False)
 
     @classmethod
@@ -99,7 +100,8 @@ class Visitor:
             seen_count=0,
             frame_count=0,
             last_seen=datetime_utils.now(),
-            created_at=datetime_utils.now()
+            created_at=datetime_utils.now(),
+            current_session_id=None
         )
 
     def update_state(self, current_time: datetime) -> None:
@@ -144,6 +146,7 @@ class Visitor:
             'state': self.state.value, 
             'seen_count': self.seen_count,
             'frame_count': self.frame_count,
+            'current_session_id': self.current_session_id,
             'last_seen': datetime_utils.to_formatted_string(self.last_seen),
             'created_at': datetime_utils.to_formatted_string(self.created_at)
         }
