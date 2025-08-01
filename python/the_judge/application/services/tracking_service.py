@@ -52,7 +52,7 @@ class TrackingService:
         # Create detections with current visitor state
         detections = []
         for composite in recognized_composites:
-            detection = self._create_detection(composite, frame)
+            detection = composite.visitor.create_detection(frame, composite)
             detections.append(detection)
 
         self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors.values())
@@ -123,17 +123,6 @@ class TrackingService:
             
             uow.commit()
 
-    def _create_detection(self, composite: Composite, frame: Frame) -> Detection:
-        return Detection(
-            id=str(uuid.uuid4()),
-            frame_id=frame.id,
-            face_id=composite.face.id,
-            embedding_id=composite.embedding.id,
-            visitor_id=composite.visitor.id,
-            visitor_record=composite.visitor.record(),  # Already includes current_session_id
-            captured_at=now(),
-            body_id=composite.body.id if composite.body else None
-        )
 
     def _persist_data(
             self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 

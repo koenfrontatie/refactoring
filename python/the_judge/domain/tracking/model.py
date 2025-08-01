@@ -151,6 +151,18 @@ class Visitor:
             'created_at': datetime_utils.to_formatted_string(self.created_at)
         }
 
+    def create_detection(self, frame: Frame, composite: Composite) -> Detection:
+        return Detection(
+            id=str(uuid.uuid4()),
+            frame_id=frame.id,
+            face_id=composite.face.id,
+            embedding_id=composite.embedding.id,
+            visitor_id=self.id,
+            visitor_record=self.record(),
+            captured_at=datetime_utils.now(),
+            body_id=composite.body.id if composite.body else None
+        )
+
 
 @dataclass
 class VisitorSession:
