@@ -50,7 +50,7 @@ class Detection:
     face_id: str
     embedding_id: str
     visitor_id: str
-    visitor_record: dict
+    state: VisitorState
     captured_at: datetime
     body_id: Optional[str] = None
 
@@ -158,7 +158,7 @@ class Visitor:
                 and self.current_session is not None
                 and (current_time - self.current_session.started_at) <= self.RETURNING_WINDOW)
     
-    def _should_be_promoted(self) -> bool:
+    def _should_be_promoted(self, current_time: datetime) -> bool:
         return (self.state == VisitorState.TEMPORARY
                 and self.seen_count >= 3)
 
