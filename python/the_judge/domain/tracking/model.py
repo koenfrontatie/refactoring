@@ -134,6 +134,12 @@ class Visitor:
             self.state = VisitorState.ACTIVE
 
     def create_detection(self, frame: Frame, composite: Composite) -> Detection:
+        if composite.face.frame_id != frame.id:
+            raise ValueError(f"Face belongs to frame {composite.face.frame_id}, not {frame.id}")
+        
+        if composite.body and composite.body.frame_id != frame.id:
+            raise ValueError(f"Body belongs to frame {composite.body.frame_id}, not {frame.id}")
+        
         return Detection(
             id=str(uuid.uuid4()),
             frame=frame,
@@ -144,6 +150,14 @@ class Visitor:
             captured_at=self.last_seen,
             body=composite.body
         )
+    
+    def end_current_session(self, end_frame: Frame) -> Optional[VisitorSession]:
+        if self.current_session and self.current_session.is_active:
+            self.current_session.end(end_frame.captured_at)
+            ended_session = self.current_session
+            self.current_session = None
+            return ended_session
+        return None
     
     def _should_be_removed(self, current_time) -> bool:
         return (self.state == VisitorState.TEMPORARY

@@ -47,6 +47,7 @@ class TrackingService:
             composite.visitor.mark_sighting(composite.face.captured_at, is_new_in_collection)
             composite.visitor.update_state(composite.face.captured_at)
             detections.append(composite.visitor.create_detection(frame, composite))
+            dirty_visitors[composite.visitor.id] = composite.visitor
 
         # Check for timeouts of all visitors in registry
         expired_visitors, missing_visitors = self.visitor_registry.check_visitor_timeouts(recognized_composites)
@@ -55,9 +56,9 @@ class TrackingService:
         dirty_ended_sessions = []
 
         for visitor in missing_visitors:
-            visitor.current_session.end(visitor.current_session.captured_at)
-            dirty_ended_sessions.append(visitor.current_session)
-            visitor.current_session = None
+            ended_session = visitor.end_current_session(frame)
+            if ended_session:
+                dirty_ended_sessions.append(ended_session)
             dirty_visitors[visitor.id] = visitor
 
         # expired temporary visitors should be removed entirely
@@ -103,7 +104,8 @@ class TrackingService:
         
         for visitor in dirty_visitors:
             uow.repository.merge(visitor)
-            uow.repository.merge(visitor.current_session)
+            if visitor.current_session:
+                uow.repository.merge(visitor.current_session)
 
         for session in dirty_sessions:
             uow.repository.merge(session)
