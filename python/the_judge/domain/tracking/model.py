@@ -88,7 +88,8 @@ class Visitor:
     frame_count: int
     last_seen: datetime
     created_at: datetime
-    current_session_id: Optional[str] = None  # Just store the ID, not the object
+    session_started_at: datetime
+    current_session_id: Optional[str] = None  
     events: List = field(default_factory=list, init=False, compare=False)
 
     @classmethod
