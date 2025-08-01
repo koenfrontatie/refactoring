@@ -2,11 +2,11 @@ from typing import List, Dict, Optional, Callable
 from randomname import get_name
 import uuid
 
-from the_judge.domain.tracking.model import Visitor, Detection, Face, FaceEmbedding, Body, Composite, Frame
+from the_judge.domain.tracking.model import Visitor, Detection, Face, FaceEmbedding, Body, Composite, Frame, VisitorSession
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.application.messagebus import MessageBus
-from the_judge.domain.tracking.events import FrameProcessed
+from the_judge.domain.tracking.events import FrameProcessed, SessionStarted, SessionEnded
 from the_judge.application.services.visitor_registry import VisitorRegistry
 from the_judge.common.logger import setup_logger
 from the_judge.common.datetime_utils import now
@@ -76,17 +76,46 @@ class TrackingService:
             frame_id: str, 
             is_new_in_collection: bool) -> None:
         
-        composite.visitor.last_seen = now()
-        composite.visitor.frame_count += 1
+        visitor = composite.visitor
+        visitor.last_seen = now()
+        visitor.frame_count += 1
         
         if is_new_in_collection:
-            composite.visitor.seen_count += 1
-            composite.visitor._check_promotion()
+            visitor.seen_count += 1
+            visitor._check_promotion()
         
-        if not composite.visitor.current_session or not composite.visitor.current_session.is_active:
-            composite.visitor.start_session(frame_id)
-        else:
-            composite.visitor.current_session.add_frame()
+        # Find active session directly through the repository
+        with self.uow_factory() as uow:
+            active_session = uow.repository.get_by(
+                VisitorSession, 
+                visitor_id=visitor.id, 
+                ended_at=None
+            )
+            
+            if not active_session:
+                # Create a new session
+                session_id = str(uuid.uuid4())
+                new_session = VisitorSession(
+                    id=session_id,
+                    visitor_id=visitor.id,
+                    start_frame_id=frame_id,
+                    started_at=now(),
+                    captured_at=now()
+                )
+                uow.repository.add(new_session)
+                
+                # Add event
+                visitor.events.append(SessionStarted(
+                    visitor_id=visitor.id,
+                    session_id=session_id,
+                    frame_id=frame_id
+                ))
+            else:
+                # Update existing session
+                active_session.add_frame()
+                uow.repository.merge(active_session)
+            
+            uow.commit()
 
     def _create_detection(self, composite: Composite, frame: Frame) -> Detection:
         return Detection(
@@ -119,8 +148,6 @@ class TrackingService:
         
         for visitor in dirty_visitors:
             uow.repository.merge(visitor)
-            if visitor.current_session:
-                uow.repository.merge(visitor.current_session)
 
     def _publish_visitor_events(self, composites: List[Composite]) -> None:
         for composite in composites:
@@ -149,8 +176,24 @@ class TrackingService:
             if embedding:
                 uow.repository.delete(embedding)
         
-        if visitor.current_session:
-            uow.repository.delete(visitor.current_session)
+        # End active session if exists
+        active_session = uow.repository.get_by(VisitorSession, visitor_id=visitor.id, ended_at=None)
+        if active_session:
+            # End the session
+            active_session.end("expired", now())
+            uow.repository.merge(active_session)
+            
+            # Add SessionEnded event
+            self.bus.handle(SessionEnded(
+                visitor_id=visitor.id,
+                session_id=active_session.id,
+                reason="expired"
+            ))
+        
+        # Delete all sessions for this visitor
+        sessions = uow.repository.list_by(VisitorSession, visitor_id=visitor.id)
+        for session in sessions:
+            uow.repository.delete(session)
         
         visitor_entity = uow.repository.get(Visitor, visitor.id)
         if visitor_entity:

@@ -88,7 +88,6 @@ class Visitor:
     frame_count: int
     last_seen: datetime
     created_at: datetime
-    current_session: Optional[VisitorSession] = None
     events: List = field(default_factory=list, init=False, compare=False)
 
     @classmethod
@@ -103,26 +102,6 @@ class Visitor:
             created_at=datetime_utils.now()
         )
 
-    def start_session(self, frame_id: str) -> None:
-        if self.current_session and self.current_session.is_active:
-            raise ValueError("Cannot start new session while another is active")
-        
-        session_id = str(uuid.uuid4())
-        self.current_session = VisitorSession(
-            id=session_id,
-            visitor_id=self.id,
-            start_frame_id=frame_id,
-            started_at=datetime_utils.now(),
-            captured_at=datetime_utils.now()
-        )
-        
-        from .events import SessionStarted
-        self.events.append(SessionStarted(
-            visitor_id=self.id,
-            session_id=session_id,
-            frame_id=frame_id
-        ))
-
     def update_state(self, current_time: datetime) -> None:
         time_since_last_seen = current_time - self.last_seen
         
@@ -134,13 +113,11 @@ class Visitor:
             from .events import VisitorReturned
             self.events.append(VisitorReturned(visitor_id=self.id))
         elif self.state == VisitorState.RETURNING:
-            if self.current_session and (current_time - self.current_session.started_at) > timedelta(seconds=30):
+            # Check against 30 seconds threshold for RETURNING to ACTIVE transition
+            if (current_time - self.last_seen) > timedelta(seconds=30):
                 self.state = VisitorState.ACTIVE
 
     def expire(self) -> None:
-        if self.current_session and self.current_session.is_active:
-            self._end_current_session("expired", datetime_utils.now())
-        
         from .events import VisitorExpired
         self.events.append(VisitorExpired(visitor_id=self.id))
 
@@ -148,14 +125,6 @@ class Visitor:
     def should_be_removed(self) -> bool:
         return (self.state == VisitorState.TEMPORARY and 
                 (datetime_utils.now() - self.last_seen) > timedelta(minutes=1))
-
-    @property
-    def current_session_id(self) -> Optional[str]:
-        return self.current_session.id if self.current_session else None
-
-    @property
-    def session_started_at(self) -> Optional[datetime]:
-        return self.current_session.started_at if self.current_session else None
 
     def _check_promotion(self) -> None:
         if self.state == VisitorState.TEMPORARY and self.seen_count >= 3:
@@ -165,19 +134,8 @@ class Visitor:
 
     def _become_missing(self, current_time: datetime) -> None:
         self.state = VisitorState.MISSING
-        self._end_current_session("timeout", current_time)
         from .events import VisitorWentMissing
         self.events.append(VisitorWentMissing(visitor_id=self.id))
-
-    def _end_current_session(self, reason: str, ended_at: datetime) -> None:
-        if self.current_session and self.current_session.is_active:
-            self.current_session.end("unknown", ended_at)
-            from .events import SessionEnded
-            self.events.append(SessionEnded(
-                visitor_id=self.id,
-                session_id=self.current_session.id,
-                reason=reason
-            ))
 
     def record(self) -> dict:
         return {
@@ -186,10 +144,8 @@ class Visitor:
             'state': self.state.value, 
             'seen_count': self.seen_count,
             'frame_count': self.frame_count,
-            'current_session_id': self.current_session_id,
             'last_seen': datetime_utils.to_formatted_string(self.last_seen),
-            'created_at': datetime_utils.to_formatted_string(self.created_at),
-            'session_started_at': datetime_utils.to_formatted_string(self.session_started_at) if self.session_started_at else None
+            'created_at': datetime_utils.to_formatted_string(self.created_at)
         }
 
 
