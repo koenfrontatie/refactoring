@@ -2,7 +2,7 @@ from typing import List, Dict, Optional, Callable
 from randomname import get_name
 import uuid
 
-from the_judge.domain.tracking.model import Visitor, Detection, Face, FaceEmbedding, Body, Composite, Frame, VisitorSession
+from the_judge.domain.tracking.model import Visitor, Detection, Face, FaceEmbedding, Body, Composite, Frame, VisitorSession, VisitorState
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.application.messagebus import MessageBus
@@ -47,6 +47,8 @@ class TrackingService:
         # Update all visitor states based on time (also returns visitors that have timed out)
         expired_visitors, state_changed_visitors = self.visitor_registry.update_all_states()
         for visitor in state_changed_visitors:
+            if visitor.state == VisitorState.MISSING:
+                self._end_current_session(uow, visitor, "went_missing")
             dirty_visitors[visitor.id] = visitor
 
         # Create detections with current visitor state
@@ -85,42 +87,22 @@ class TrackingService:
             visitor.seen_count += 1
             visitor._check_promotion()
         
-        # Use the existing UoW instead of creating a new one
-        active_session = uow.repository.get_by(
-            VisitorSession, 
-            visitor_id=visitor.id, 
-            ended_at=None
-        )
-        
-        if not active_session:
-            # Create a new session
-            session_id = str(uuid.uuid4())
-            new_session = VisitorSession(
-                id=session_id,
-                visitor_id=visitor.id,
-                start_frame_id=frame_id,
-                started_at=now(),
-                captured_at=now()
-            )
-            uow.repository.add(new_session)
-            
-            # Set the current session ID on the visitor
-            visitor.current_session_id = session_id
-            
-            # Add event
-            visitor.events.append(SessionStarted(
-                visitor_id=visitor.id,
-                session_id=session_id,
-                frame_id=frame_id
-            ))
+        if visitor.state == VisitorState.RETURNING:
+            self._end_current_session(uow, visitor, "visitor_returned")
+            self._start_new_session(uow, visitor, frame_id)
         else:
-            # Update existing session
-            active_session.add_frame()
-            uow.repository.merge(active_session)
+            active_session = uow.repository.get_by(
+                VisitorSession, 
+                visitor_id=visitor.id, 
+                ended_at=None
+            )
             
-            # Ensure the current session ID is set
-            visitor.current_session_id = active_session.id
-            visitor.session_started_at = active_session.started_at
+            if not active_session:
+                self._start_new_session(uow, visitor, frame_id)
+            else:
+                active_session.add_frame()
+                uow.repository.merge(active_session)
+                visitor.current_session_id = active_session.id
         
     def _create_detection(self, composite: Composite, frame: Frame) -> Detection:
         return Detection(
@@ -181,22 +163,9 @@ class TrackingService:
             if embedding:
                 uow.repository.delete(embedding)
         
-        # End active session if exists
         active_session = uow.repository.get_by(VisitorSession, visitor_id=visitor.id, ended_at=None)
         if active_session:
-            # End the session
-            active_session.end("expired", now())
-            uow.repository.merge(active_session)
-            
-            # Clear the current session ID on the visitor
-            visitor.current_session_id = None
-            
-            # Add SessionEnded event
-            self.bus.handle(SessionEnded(
-                visitor_id=visitor.id,
-                session_id=active_session.id,
-                reason="expired"
-            ))
+            self._end_current_session(uow, visitor, "expired")
         
         # Delete all sessions for this visitor
         sessions = uow.repository.list_by(VisitorSession, visitor_id=visitor.id)
@@ -206,3 +175,36 @@ class TrackingService:
         visitor_entity = uow.repository.get(Visitor, visitor.id)
         if visitor_entity:
             uow.repository.delete(visitor_entity)
+
+    def _start_new_session(self, uow: AbstractUnitOfWork, visitor: Visitor, frame_id: str) -> None:
+        session_id = str(uuid.uuid4())
+        new_session = VisitorSession(
+            id=session_id,
+            visitor_id=visitor.id,
+            start_frame_id=frame_id,
+            started_at=now(),
+            captured_at=now()
+        )
+        uow.repository.add(new_session)
+        visitor.current_session_id = session_id
+        
+        self.bus.handle(SessionStarted(
+            visitor_id=visitor.id,
+            session_id=session_id,
+            frame_id=frame_id
+        ))
+
+    def _end_current_session(self, uow: AbstractUnitOfWork, visitor: Visitor, reason: str) -> None:
+        if visitor.current_session_id:
+            active_session = uow.repository.get(VisitorSession, visitor.current_session_id)
+            if active_session and active_session.is_active:
+                active_session.end("system_generated", now())
+                uow.repository.merge(active_session)
+                
+                self.bus.handle(SessionEnded(
+                    visitor_id=visitor.id,
+                    session_id=active_session.id,
+                    reason=reason
+                ))
+                
+        visitor.current_session_id = None

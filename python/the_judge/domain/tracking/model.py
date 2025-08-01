@@ -88,7 +88,6 @@ class Visitor:
     frame_count: int
     last_seen: datetime
     created_at: datetime
-    session_started_at: datetime
     current_session_id: Optional[str] = None  
     events: List = field(default_factory=list, init=False, compare=False)
 
@@ -112,11 +111,8 @@ class Visitor:
             if self.state != VisitorState.MISSING:
                 self._become_missing(current_time)
         elif self.state == VisitorState.MISSING:
-            self.state = VisitorState.RETURNING
-            from .events import VisitorReturned
-            self.events.append(VisitorReturned(visitor_id=self.id))
+            self._become_returning(current_time)
         elif self.state == VisitorState.RETURNING:
-            # Check against 30 seconds threshold for RETURNING to ACTIVE transition
             if (current_time - self.last_seen) > timedelta(seconds=30):
                 self.state = VisitorState.ACTIVE
 
@@ -139,6 +135,11 @@ class Visitor:
         self.state = VisitorState.MISSING
         from .events import VisitorWentMissing
         self.events.append(VisitorWentMissing(visitor_id=self.id))
+
+    def _become_returning(self, current_time: datetime) -> None:
+        self.state = VisitorState.RETURNING
+        from .events import VisitorReturned
+        self.events.append(VisitorReturned(visitor_id=self.id))
 
     def record(self) -> dict:
         return {
