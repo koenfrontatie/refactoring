@@ -5,7 +5,7 @@ import uuid
 from abc import ABC, abstractmethod
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, inspect
-from the_judge.domain.tracking.model import Frame, Face, Body, Detection, Visitor
+from the_judge.domain.tracking.model import Frame, Face, Body, Detection, Visitor, FaceEmbedding, VisitorSession, Composite
 
 
 class AbstractRepository(ABC):
@@ -43,6 +43,18 @@ class AbstractRepository(ABC):
         
     @abstractmethod
     def get_all_sorted(self, entity_class: Type, offset: int = 0) -> List[Any]: 
+        raise NotImplementedError
+    
+    @abstractmethod
+    def cascade_delete_visitor(self, visitor_id: str) -> None:
+        raise NotImplementedError
+    
+    @abstractmethod
+    def persist_frame_batch(self, frame: Frame, bodies: List[Body], composites: List[Composite], detections: List[Detection]) -> None:
+        raise NotImplementedError
+    
+    @abstractmethod
+    def cleanup_expired_visitors(self, visitor_ids: List[str]) -> None:
         raise NotImplementedError
 
 
@@ -139,3 +151,49 @@ class TrackingRepository:
         """Ensure visitor has events list initialized after loading from DB."""
         if not hasattr(visitor, 'events') or visitor.events is None:
             visitor.events = []
+    
+    def cascade_delete_visitor(self, visitor_id: str) -> None:
+        """Handles all related data cleanup when removing a visitor"""
+        detections = self.list_by(Detection, visitor_id=visitor_id)
+        embedding_ids = {detection.embedding_id for detection in detections}
+        
+        for detection in detections:
+            self.delete(detection)
+        
+        for embedding_id in embedding_ids:
+            embedding = self.get(FaceEmbedding, embedding_id)
+            if embedding:
+                self.delete(embedding)
+        
+        active_session = self.get_by(VisitorSession, visitor_id=visitor_id, ended_at=None)
+        if active_session:
+            from the_judge.common.datetime_utils import now
+            active_session.end("system_generated", now())
+            self.merge(active_session)
+        
+        sessions = self.list_by(VisitorSession, visitor_id=visitor_id)
+        for session in sessions:
+            self.delete(session)
+        
+        visitor_entity = self.get(Visitor, visitor_id)
+        if visitor_entity:
+            self.delete(visitor_entity)
+    
+    def persist_frame_batch(self, frame: Frame, bodies: List[Body], composites: List[Composite], detections: List[Detection]) -> None:
+        """Optimized batch persistence for frame processing"""
+        self.add(frame)
+        
+        for body in bodies:
+            self.add(body)
+        
+        for composite in composites:
+            self.add(composite.embedding)
+            self.add(composite.face)
+        
+        for detection in detections:
+            self.add(detection)
+    
+    def cleanup_expired_visitors(self, visitor_ids: List[str]) -> None:
+        """Batch cleanup of multiple expired visitors"""
+        for visitor_id in visitor_ids:
+            self.cascade_delete_visitor(visitor_id)
