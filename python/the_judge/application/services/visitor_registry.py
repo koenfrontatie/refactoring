@@ -50,10 +50,9 @@ class VisitorRegistry:
         state_changed_visitors = []
         
         for visitor in self.active_visitors.values():
-            old_state = visitor.state
-            visitor.update_state(current_time)
+            state_changed = visitor.update_state(current_time)
             
-            if visitor.state != old_state:
+            if state_changed:
                 state_changed_visitors.append(visitor)
                 
             if visitor.should_be_removed:

@@ -2,7 +2,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from the_judge.common import datetime_utils
-from typing import Optional, List, Set, Dict
+from typing import Optional, List, Set, Dict, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 import numpy as np
 from enum import Enum
 import uuid
@@ -104,8 +107,25 @@ class Visitor:
             current_session_id=None
         )
 
-    def update_state(self, current_time: datetime) -> None:
+    def process_detection(self, frame_id: str, is_new_in_collection: bool) -> Optional[VisitorSession]:
+        self.last_seen = datetime_utils.now()
+        self.frame_count += 1
+        
+        if is_new_in_collection:
+            self.seen_count += 1
+            self._check_promotion()
+        
+        if self.state == VisitorState.RETURNING:
+            self._end_current_session("visitor_returned")
+            return self._start_new_session(frame_id)
+        elif not self.current_session_id:
+            return self._start_new_session(frame_id)
+        else:
+            return None
+
+    def update_state(self, current_time: datetime) -> bool:
         time_since_last_seen = current_time - self.last_seen
+        old_state = self.state
         
         if time_since_last_seen > timedelta(minutes=1):
             if self.state != VisitorState.MISSING:
@@ -115,6 +135,8 @@ class Visitor:
         elif self.state == VisitorState.RETURNING:
             if (current_time - self.last_seen) > timedelta(seconds=30):
                 self.state = VisitorState.ACTIVE
+        
+        return self.state != old_state
 
     def expire(self) -> None:
         from .events import VisitorExpired
@@ -124,6 +146,50 @@ class Visitor:
     def should_be_removed(self) -> bool:
         return (self.state == VisitorState.TEMPORARY and 
                 (datetime_utils.now() - self.last_seen) > timedelta(minutes=1))
+
+    @property
+    def has_active_session(self) -> bool:
+        return self.current_session_id is not None
+
+    def end_current_session(self, reason: str) -> Optional[str]:
+        if self.current_session_id:
+            session_id = self.current_session_id
+            self._end_current_session(reason)
+            return session_id
+        return None
+
+    def _start_new_session(self, frame_id: str) -> VisitorSession:
+        from .events import SessionStarted
+        
+        session_id = str(uuid.uuid4())
+        new_session = VisitorSession(
+            id=session_id,
+            visitor_id=self.id,
+            start_frame_id=frame_id,
+            started_at=datetime_utils.now(),
+            captured_at=datetime_utils.now()
+        )
+        
+        self.current_session_id = session_id
+        self.events.append(SessionStarted(
+            visitor_id=self.id,
+            session_id=session_id,
+            frame_id=frame_id
+        ))
+        
+        return new_session
+
+    def _end_current_session(self, reason: str) -> None:
+        from .events import SessionEnded
+        
+        if self.current_session_id:
+            self.events.append(SessionEnded(
+                visitor_id=self.id,
+                session_id=self.current_session_id,
+                reason=reason
+            ))
+        
+        self.current_session_id = None
 
     def _check_promotion(self) -> None:
         if self.state == VisitorState.TEMPORARY and self.seen_count >= 3:
@@ -167,6 +233,7 @@ class VisitorSession:
 
     def add_frame(self) -> None:
         self.frame_count += 1
+        self.captured_at = datetime_utils.now()
 
     def end(self, end_frame_id: str, ended_at: datetime) -> None:
         self.end_frame_id = end_frame_id
