@@ -46,13 +46,13 @@ class Body:
 @dataclass
 class Detection:
     id: str
-    frame_id: str
-    face_id: str
-    embedding_id: str
-    visitor_id: str
+    frame: Frame
+    face: Face
+    embedding: FaceEmbedding
+    visitor: Visitor
     state: VisitorState
     captured_at: datetime
-    body_id: Optional[str] = None
+    body: Optional[Body] = None
 
 @dataclass
 class Camera:
@@ -136,13 +136,13 @@ class Visitor:
     def create_detection(self, frame: Frame, composite: Composite) -> Detection:
         return Detection(
             id=str(uuid.uuid4()),
-            frame_id=frame.id,
-            face_id=composite.face.id,
-            embedding_id=composite.embedding.id,
-            visitor_id=self.id,
-            state=self.state, #should be visitor state
+            frame=frame,
+            face=composite.face,
+            embedding=composite.embedding,
+            visitor=self,
+            state=self.state,
             captured_at=self.last_seen,
-            body_id=composite.body.id if composite.body else None   
+            body=composite.body
         )
     
     def _should_be_removed(self, current_time) -> bool:

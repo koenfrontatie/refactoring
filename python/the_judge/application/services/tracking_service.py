@@ -125,15 +125,13 @@ class TrackingService:
         visitor.events.clear()
         
         detections = uow.repository.list_by(Detection, visitor_id=visitor.id)
-        embedding_ids = {detection.embedding_id for detection in detections}
+        embeddings = {detection.embedding for detection in detections}
         
         for detection in detections:
             uow.repository.delete(detection)
         
-        for embedding_id in embedding_ids:
-            embedding = uow.repository.get(FaceEmbedding, embedding_id)
-            if embedding:
-                uow.repository.delete(embedding)
+        for embedding in embeddings:
+            uow.repository.delete(embedding)
         
         # Delete all sessions for this visitor
         sessions = uow.repository.list_by(VisitorSession, visitor_id=visitor.id)
