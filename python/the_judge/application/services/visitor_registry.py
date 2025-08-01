@@ -43,24 +43,23 @@ class VisitorRegistry:
             self.current_collection.composites = [c for c in self.current_collection.composites if c.visitor.id != visitor_id]
         return self.active_visitors.pop(visitor_id, None)
 
-    def update_all_states(self) -> tuple[List[Visitor], List[Visitor]]:
-        # Time-based state transitions for all active visitors
+    def check_visitor_timeouts(self, recognized_composites: List[Composite] = None) -> tuple[List[Visitor], List[Visitor]]:
         current_time = now()
         expired_visitors = []
-        state_changed_visitors = []
+        missing_visitors = []
+        detected_ids = {c.visitor.id for c in (recognized_composites or []) if c.visitor}
         
-        for visitor in self.active_visitors.values():
-            old_state = visitor.state
+        for visitor in list(self.active_visitors.values()):
             visitor.update_state(current_time)
-            
-            if visitor.state != old_state:
-                state_changed_visitors.append(visitor)
+            if visitor.id in detected_ids:
+                continue
                 
-            if visitor.should_be_removed:
+            if visitor._should_be_removed(current_time):
                 expired_visitors.append(visitor)
+                self.remove_visitor(visitor.id)
+            elif visitor._should_go_missing(current_time):
+                missing_visitors.append(visitor)
+                self.remove_visitor(visitor.id)
+
+        return expired_visitors, missing_visitors
         
-        for visitor in expired_visitors:
-            visitor.expire()
-            self.remove_visitor(visitor.id)
-            
-        return expired_visitors, state_changed_visitors

@@ -2,7 +2,7 @@ from typing import List, Dict, Optional, Callable
 from randomname import get_name
 import uuid
 
-from the_judge.domain.tracking.model import Visitor, Detection, Face, FaceEmbedding, Body, Composite, Frame, VisitorSession
+from the_judge.domain.tracking.model import Visitor, Detection, Face, FaceEmbedding, Body, Composite, Frame, VisitorSession, VisitorCollection
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.application.messagebus import MessageBus
@@ -33,102 +33,62 @@ class TrackingService:
             bodies: List[Body]) -> None:
         
         collection = self.visitor_registry.get_or_create_collection(frame.collection_id)
+
+        # Ensure all composites have a (new) visitor
         recognized_composites = self.face_recognizer.recognize_faces(paired_composites)
+        self._ensure_visitors_for(recognized_composites, frame, collection)
 
         dirty_visitors = {}  
-        
-        # Process each composite and update visitor state
-        for composite in recognized_composites:
-            self._ensure_composite_has_visitor(composite, collection)
-            is_new_in_collection = self.visitor_registry.add_composite(composite)
-            self._update_visitor_for_detection(composite, frame.id, is_new_in_collection)
-            dirty_visitors[composite.visitor.id] = composite.visitor
+        detections = []
 
-        # Update all visitor states based on time (also returns visitors that have timed out)
-        expired_visitors, state_changed_visitors = self.visitor_registry.update_all_states()
-        for visitor in state_changed_visitors:
+        # Update state of detected visitors and create detections.
+        for composite in recognized_composites:
+            is_new_in_collection = self.visitor_registry.add_composite(composite)
+            composite.visitor.mark_sighting(composite.face.captured_at, is_new_in_collection)
+            composite.visitor.update_state(composite.face.captured_at)
+            detections.append(composite.visitor.create_detection(frame, composite))
+
+        # Check for timeouts of all visitors in registry
+        expired_visitors, missing_visitors = self.visitor_registry.check_visitor_timeouts(recognized_composites)
+        
+        # missing visitors should end their sessions and set current session to none after ending and persisting the session
+        dirty_ended_sessions = []
+
+        for visitor in missing_visitors:
+            visitor.current_session.end(visitor.current_session.captured_at)
+            dirty_ended_sessions.append(visitor.current_session)
+            visitor.current_session = None
             dirty_visitors[visitor.id] = visitor
 
-        # Create detections with current visitor state
-        detections = []
-        for composite in recognized_composites:
-            detection = composite.visitor.create_detection(frame, composite)
-            detections.append(detection)
-
-        self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors.values())
+        # expired temporary visitors should be removed entirely
         self._cleanup_expired_visitors(uow, expired_visitors)
+
+        self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors.values(), dirty_ended_sessions)
+
         self._publish_visitor_events(recognized_composites)
+        
         self.bus.handle(FrameProcessed(frame.id, len(detections)))
 
-    def _create_new_visitor(self) -> Visitor:
-        visitor = Visitor.create_new(get_name())
-        return visitor
-
-    def _ensure_composite_has_visitor(self, composite: Composite, collection) -> None:
-        if not composite.visitor:
-            visitor = self.face_recognizer.match_against_collection(composite, collection.composites)
-            if not visitor:
-                visitor = self._create_new_visitor()
-            composite.visitor = visitor
-
-    def _update_visitor_for_detection(
-            self, composite: Composite, 
-            frame_id: str, 
-            is_new_in_collection: bool) -> None:
-        
-        visitor = composite.visitor
-        visitor.last_seen = now()
-        visitor.frame_count += 1
-        
-        if is_new_in_collection:
-            visitor.seen_count += 1
-            visitor._check_promotion()
-        
-        # Find active session directly through the repository
-        with self.uow_factory() as uow:
-            active_session = uow.repository.get_by(
-                VisitorSession, 
-                visitor_id=visitor.id, 
-                ended_at=None
-            )
-            
-            if not active_session:
-                # Create a new session
-                session_id = str(uuid.uuid4())
-                new_session = VisitorSession(
-                    id=session_id,
-                    visitor_id=visitor.id,
-                    start_frame_id=frame_id,
-                    started_at=now(),
-                    captured_at=now()
-                )
-                uow.repository.add(new_session)
+    def _ensure_visitors_for(self, composites: List[Composite], frame: Frame, collection: VisitorCollection) -> None:
+        for composite in composites:
+            # There may be matches with current collection buffer, either match or create a new visitor.
+            if not composite.visitor:
+                visitor = self.face_recognizer.match_against_collection(composite, collection.composites)
                 
-                # Set the current session ID on the visitor
-                visitor.current_session_id = session_id
-                
-                # Add event
-                visitor.events.append(SessionStarted(
-                    visitor_id=visitor.id,
-                    session_id=session_id,
-                    frame_id=frame_id
-                ))
-            else:
-                # Update existing session
-                active_session.add_frame()
-                uow.repository.merge(active_session)
-                
-                # Ensure the current session ID is set
-                visitor.current_session_id = active_session.id
-            
-            uow.commit()
+                if not visitor:
+                    visitor = Visitor.create_new(get_name(), composite.face.captured_at)
+                    visitor.current_session = VisitorSession.create_new(
+                        visitor_id=visitor.id,
+                        frame=frame,
+                    )
 
+                composite.visitor = visitor
 
     def _persist_data(
             self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 
             composites: List[Composite], detections: List[Detection], 
-            dirty_visitors: set) -> None:
-        
+            dirty_visitors: dict, dirty_sessions: List[VisitorSession]) -> None:
+
         uow.repository.add(frame)
         
         for body in bodies:
@@ -143,6 +103,10 @@ class TrackingService:
         
         for visitor in dirty_visitors:
             uow.repository.merge(visitor)
+            uow.repository.merge(visitor.current_session)
+
+        for session in dirty_sessions:
+            uow.repository.merge(session)
 
     def _publish_visitor_events(self, composites: List[Composite]) -> None:
         for composite in composites:
@@ -170,23 +134,6 @@ class TrackingService:
             embedding = uow.repository.get(FaceEmbedding, embedding_id)
             if embedding:
                 uow.repository.delete(embedding)
-        
-        # End active session if exists
-        active_session = uow.repository.get_by(VisitorSession, visitor_id=visitor.id, ended_at=None)
-        if active_session:
-            # End the session
-            active_session.end("expired", now())
-            uow.repository.merge(active_session)
-            
-            # Clear the current session ID on the visitor
-            visitor.current_session_id = None
-            
-            # Add SessionEnded event
-            self.bus.handle(SessionEnded(
-                visitor_id=visitor.id,
-                session_id=active_session.id,
-                reason="expired"
-            ))
         
         # Delete all sessions for this visitor
         sessions = uow.repository.list_by(VisitorSession, visitor_id=visitor.id)
