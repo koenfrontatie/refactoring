@@ -10,7 +10,7 @@ LOCAL_TZ = ZoneInfo('Europe/Amsterdam')
 
 def now() -> datetime:
     """Get current local datetime object."""
-    return datetime.now(LOCAL_TZ)
+    return datetime.now(LOCAL_TZ).replace(tzinfo=None)
 
 def to_formatted_string(dt: datetime = None) -> str:
     """Convert datetime to database format string."""

@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, LargeBinary, Float, JSON, Enum, ForeignKey, event
+from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, Float, JSON, Enum, ForeignKey
 from sqlalchemy.orm import registry, relationship
 from the_judge.domain.tracking.model import Frame, Face, Body, Detection, Visitor, FaceEmbedding, VisitorState, VisitorSession
 from the_judge.infrastructure.db.types.numpy_array import NumpyArray
@@ -121,11 +121,5 @@ def start_mappers():
         'body': relationship('Body', lazy='select'),
         'visitor': relationship('Visitor', lazy='select')
     })
-
-@event.listens_for(Visitor, 'load')
-@event.listens_for(Visitor, 'refresh')
-def initialize_visitor_events(target, context, attrs=None):
-    if not hasattr(target, 'events'):
-        target.events = []
 
     
