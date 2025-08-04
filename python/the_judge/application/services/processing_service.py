@@ -50,7 +50,8 @@ class FrameProcessingService:
             self.executor, self.process_frame, event.frame, str(image_path)
         )
 
-    def process_frame(self, frame: Frame, image_path: str) -> None:        
+    def process_frame(self, frame: Frame, image_path: str) -> None:
+        frame_id = frame.id
         try:
             image = self._load_image(image_path)
             if image is None:
@@ -72,8 +73,8 @@ class FrameProcessingService:
 
             self.tracking_service.handle_timeouts()
 
-        except Exception as exc:
-            logger.exception("Error processing frame %s", frame.id)
+        except Exception:
+            logger.exception("Error processing frame %s", frame_id)
 
     def _load_image(self, image_path: str):
         img = cv2.imread(image_path)

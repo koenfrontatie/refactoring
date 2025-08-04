@@ -93,11 +93,13 @@ def start_mappers():
     mapper_registry.map_imperatively(Frame, frames)
     mapper_registry.map_imperatively(FaceEmbedding, face_embeddings)
     mapper_registry.map_imperatively(Visitor, visitors, properties={
-        'current_session': relationship('VisitorSession', 
-                                       primaryjoin='and_(Visitor.id == VisitorSession.visitor_id, VisitorSession.ended_at == None)',
-                                       uselist=False,
-                                       lazy='select'
-                                       )
+        'current_session': relationship(
+            'VisitorSession',
+            primaryjoin='and_(Visitor.id == VisitorSession.visitor_id, VisitorSession.ended_at == None)',
+            uselist=False,
+            lazy='select',
+            viewonly=True,
+        )
     })
     
     mapper_registry.map_imperatively(Face, faces, properties={
