@@ -117,12 +117,9 @@ class TrackingService:
             for visitor in active_visitors:
                 visitor.update_state(current_time)
                 
-                if visitor.state == VisitorState.MISSING and visitor.current_session:
-                    visitor.current_session.end(current_time)
-                    uow.repository.merge(visitor.current_session)
-                    visitor.current_session = None
-                
                 uow.repository.merge(visitor)
+                if visitor.current_session:
+                    uow.repository.merge(visitor.current_session)
                 
                 for event in visitor.events:
                     self.bus.handle(event)

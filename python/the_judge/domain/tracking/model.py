@@ -124,6 +124,15 @@ class Visitor:
         elif self._should_go_missing(current_time):
             self.state = VisitorState.MISSING
             if self.state != old_state:
+                if self.current_session and self.current_session.is_active:
+                    self.current_session.end(current_time)
+                    from the_judge.domain.tracking.events import SessionEnded
+                    self.events.append(SessionEnded(
+                        visitor_id=self.id,
+                        session_id=self.current_session.id,
+                        reason="missing"
+                    ))
+                    self.current_session = None
                 from the_judge.domain.tracking.events import VisitorWentMissing
                 self.events.append(VisitorWentMissing(visitor_id=self.id))
 
@@ -153,14 +162,6 @@ class Visitor:
             captured_at=self.last_seen,
             body=composite.body
         )
-    
-    def end_current_session(self, end_frame: Frame) -> Optional[VisitorSession]:
-        if self.current_session and self.current_session.is_active:
-            self.current_session.end(end_frame.captured_at)
-            ended_session = self.current_session
-            self.current_session = None
-            return ended_session
-        return None
     
     def _should_be_removed(self, current_time) -> bool:
         return (self.state == VisitorState.TEMPORARY
