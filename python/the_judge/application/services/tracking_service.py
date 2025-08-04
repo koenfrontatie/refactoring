@@ -49,11 +49,6 @@ class TrackingService:
             detections.append(composite.visitor.create_detection(frame, composite))
             dirty_visitors[composite.visitor.id] = composite.visitor
 
-        # Merge visitors in registry before checking timeouts
-            '''        for visitor_id in list(self.visitor_registry.active_visitors.keys()):
-            self.visitor_registry.active_visitors[visitor_id] = uow.session.merge(
-                self.visitor_registry.active_visitors[visitor_id]
-            )'''
         # Check for timeouts of all visitors in registry
         expired_visitors, missing_visitors = self.visitor_registry.check_visitor_timeouts(recognized_composites)
         
