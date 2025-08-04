@@ -35,8 +35,8 @@ def create_app() -> App:
     face_provider = InsightFaceProvider()
     body_provider = YOLOProvider()
     
-    face_detector = FaceDetector(face_provider.get_face_model())
-    body_detector = BodyDetector(body_provider.get_body_model())
+    face_model = FaceDetector(face_provider.get_face_model())
+    body_model = BodyDetector(body_provider.get_body_model())
     
     face_body_matcher = FaceBodyMatcher()
     
@@ -44,7 +44,7 @@ def create_app() -> App:
     uow_factory = SqlAlchemyUnitOfWork
     
     face_recognizer = FaceRecognizer(
-        face_provider.get_face_model(),
+        face_model,
         uow_factory
     )
     
@@ -55,8 +55,8 @@ def create_app() -> App:
     )
 
     processing_service = FrameProcessingService(
-        face_detector=face_detector,
-        body_detector=body_detector,
+        face_detector=face_model,
+        body_detector=body_model,
         face_body_matcher=face_body_matcher,
         tracking_service=tracking_service,
         bus=bus,

@@ -191,7 +191,7 @@ class VisitorSession:
     start_frame_id: str = ""
     started_at: Optional[datetime] = None
     captured_at: Optional[datetime] = None
-    frame_count: int = 1
+    frame_count: int = 0
     ended_at: Optional[datetime] = None
 
     @classmethod

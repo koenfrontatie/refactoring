@@ -5,7 +5,7 @@ from the_judge.common.datetime_utils import now
 
 
 @dataclass
-class VisitorRegistry:    
+class CollectionBuffer:    
     # Visitor composites from all cameras in latest collection timeframe.
     current_collection: Optional[VisitorCollection] = None
 
