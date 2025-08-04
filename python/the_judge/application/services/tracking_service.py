@@ -67,6 +67,14 @@ class TrackingService:
                         visitor_id=visitor.id,
                         frame=frame,
                     )
+                else:
+                    active_session = uow.repository.get_by(VisitorSession, visitor_id=visitor.id, ended_at=None)
+                    visitor.current_session = active_session
+                    if not visitor.current_session:
+                        visitor.current_session = VisitorSession.create_new(
+                            visitor_id=visitor.id,
+                            frame=frame,
+                        )
 
                 composite.visitor = visitor
 
