@@ -36,7 +36,7 @@ class TrackingService:
 
         # Ensure all composites have a (new) visitor
         recognized_composites = self.face_recognizer.recognize_faces(uow, paired_composites)
-        self._ensure_visitors_for(recognized_composites, frame, collection)
+        self._ensure_visitors_for(uow, recognized_composites, frame, collection)
 
         dirty_visitors = {}  
         detections = []
@@ -55,7 +55,7 @@ class TrackingService:
         
         self.bus.handle(FrameProcessed(frame.id, len(detections)))
 
-    def _ensure_visitors_for(self, composites: List[Composite], frame: Frame, collection: VisitorCollection) -> None:
+    def _ensure_visitors_for(self, uow: AbstractUnitOfWork, composites: List[Composite], frame: Frame, collection: VisitorCollection) -> None:
         for composite in composites:
             # There may be matches with current collection buffer, either match or create a new visitor.
             if not composite.visitor:
@@ -70,7 +70,7 @@ class TrackingService:
                 else:
                     active_session = uow.repository.get_by(VisitorSession, visitor_id=visitor.id, ended_at=None)
                     if active_session:
-                        visitor.current_session = uow.repository.merge(active_session)
+                        visitor.current_session = active_session
                     else:
                         visitor.current_session = VisitorSession.create_new(
                             visitor_id=visitor.id,
@@ -97,9 +97,10 @@ class TrackingService:
             uow.repository.add(detection)
         
         for visitor in dirty_visitors:
-            if visitor.current_session:
-                uow.repository.merge(visitor.current_session)
             uow.repository.merge(visitor)
+            if visitor.current_session:
+                if visitor.current_session.ended_at is None:
+                    uow.repository.merge(visitor.current_session)
 
     def _publish_visitor_events(self, composites: List[Composite]) -> None:
         for composite in composites:
