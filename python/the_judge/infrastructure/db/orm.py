@@ -9,8 +9,7 @@ mapper_registry = registry()
 
 frames = Table(
     'frames', metadata,
-    Column('pk', Integer, primary_key=True),
-    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('id', String(36), primary_key=True),
     Column('camera_name', String(100), nullable=False),
     Column('captured_at', DateTime, nullable=False),
     Column('collection_id', String(50))
@@ -18,8 +17,7 @@ frames = Table(
 
 faces = Table(
     'faces', metadata,
-    Column('pk', Integer, primary_key=True),
-    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('id', String(36), primary_key=True),
     Column('frame_id', String(36), ForeignKey('frames.id'), nullable=False, index=True),
     Column('bbox', JSON),
     Column('embedding_id', String(36), ForeignKey('face_embeddings.id'), nullable=False, index=True),
@@ -34,16 +32,14 @@ faces = Table(
 
 face_embeddings = Table(
     'face_embeddings', metadata,
-    Column('pk', Integer, primary_key=True),
-    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('id', String(36), primary_key=True),
     Column('embedding', NumpyArray),
     Column('normed_embedding', NumpyArray)
 )
 
 bodies = Table(
     'bodies', metadata,
-    Column('pk', Integer, primary_key=True),
-    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('id', String(36), primary_key=True),
     Column('frame_id', String(36), ForeignKey('frames.id'), nullable=False, index=True),
     Column('bbox', JSON),
     Column('captured_at', DateTime)
@@ -51,8 +47,7 @@ bodies = Table(
 
 detections = Table(
     'detections', metadata,
-    Column('pk', Integer, primary_key=True),
-    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('id', String(36), primary_key=True),
     Column('frame_id', String(36), ForeignKey('frames.id'), nullable=False, index=True),
     Column('face_id', String(36), ForeignKey('faces.id'), nullable=False, index=True),
     Column('embedding_id', String(36), ForeignKey('face_embeddings.id'), nullable=False, index=True), 
@@ -65,8 +60,7 @@ detections = Table(
 # Updated visitors table - live state view only
 visitors = Table(
     'visitors', metadata,
-    Column('pk', Integer, primary_key=True),
-    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('id', String(36), primary_key=True),
     Column('name', String(100)),
     Column('state', Enum(VisitorState)),
     Column('seen_count', Integer, default=0),
@@ -78,8 +72,7 @@ visitors = Table(
 # New sessions table
 sessions = Table(
     'sessions', metadata,
-    Column('pk', Integer, primary_key=True),
-    Column('id', String(36), unique=True, nullable=False, index=True),
+    Column('id', String(36), primary_key=True),
     Column('visitor_id', String(36), ForeignKey('visitors.id'), nullable=False, index=True),
     Column('start_frame_id', String(36), ForeignKey('frames.id'), nullable=False, index=True),
     Column('end_frame_id', String(36), ForeignKey('frames.id'), nullable=True, index=True),
@@ -92,14 +85,9 @@ sessions = Table(
 def start_mappers():
     mapper_registry.map_imperatively(Frame, frames)
     mapper_registry.map_imperatively(FaceEmbedding, face_embeddings)
+    
     mapper_registry.map_imperatively(Visitor, visitors, properties={
-        'current_session': relationship(
-            'VisitorSession',
-            primaryjoin='and_(Visitor.id == VisitorSession.visitor_id, VisitorSession.ended_at == None)',
-            uselist=False,
-            lazy='select',
-            viewonly=True,
-        )
+        'sessions': relationship('VisitorSession', back_populates='visitor', lazy='select')
     })
     
     mapper_registry.map_imperatively(Face, faces, properties={
@@ -112,6 +100,7 @@ def start_mappers():
     })
     
     mapper_registry.map_imperatively(VisitorSession, sessions, properties={
+        'visitor': relationship('Visitor', back_populates='sessions', lazy='select'),
         'start_frame': relationship('Frame', foreign_keys=[sessions.c.start_frame_id], lazy='select'),
         'end_frame': relationship('Frame', foreign_keys=[sessions.c.end_frame_id], lazy='select')
     })
@@ -125,7 +114,6 @@ def start_mappers():
     })
 
     def _init_transients(v):
-        # idempotent: if already set (e.g., newly created in-memory), do nothing
         if not hasattr(v, "events") or v.events is None:
             v.events = []
 
@@ -133,7 +121,6 @@ def start_mappers():
     def _visitor_on_load(target, context):
         _init_transients(target)
 
-    # Optional but helpful if you use expire/refresh cycles
     @event.listens_for(Visitor, "refresh")
     def _visitor_on_refresh(target, context, attrs):
         _init_transients(target)

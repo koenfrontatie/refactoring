@@ -26,6 +26,18 @@ class AbstractTrackingRepository(ABC):
         raise NotImplementedError
     
     @abstractmethod
+    def list(self, entity_class: Type) -> List[Any]:
+        raise NotImplementedError
+    
+    @abstractmethod
+    def list_by(self, entity_class: Type, **filters) -> List[Any]:
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_by(self, entity_class: Type, **filters) -> Optional[Any]:
+        raise NotImplementedError
+    
+    @abstractmethod
     def get_active_visitors(self) -> List[Visitor]:
         raise NotImplementedError
     
@@ -70,6 +82,21 @@ class TrackingRepository(AbstractTrackingRepository):
         merged = self.session.merge(entity)
         self.session.flush()
         return merged
+
+    def list(self, entity_class: Type) -> List[Any]:
+        return self.session.query(entity_class).all()
+    
+    def list_by(self, entity_class: Type, **filters) -> List[Any]:
+        query = self.session.query(entity_class)
+        for key, value in filters.items():
+            query = query.filter(getattr(entity_class, key) == value)
+        return query.all()
+    
+    def get_by(self, entity_class: Type, **filters) -> Optional[Any]:
+        query = self.session.query(entity_class)
+        for key, value in filters.items():
+            query = query.filter(getattr(entity_class, key) == value)
+        return query.first()
 
     def get_active_visitors(self) -> List[Visitor]:
         return (

@@ -162,6 +162,11 @@ class Visitor:
             return ended_session
         return None
     
+    def load_current_session(self, repository) -> None:
+        if not self.current_session:
+            active_session = repository.get_by(VisitorSession, visitor_id=self.id, ended_at=None)
+            self.current_session = active_session
+    
     def _should_be_removed(self, current_time) -> bool:
         return (self.state == VisitorState.TEMPORARY
                 and (current_time - self.last_seen) > self.REMOVE_AFTER)
@@ -191,7 +196,7 @@ class VisitorSession:
     start_frame_id: str = ""
     started_at: Optional[datetime] = None
     captured_at: Optional[datetime] = None
-    frame_count: int = 0
+    frame_count: int = 1
     ended_at: Optional[datetime] = None
 
     @classmethod
