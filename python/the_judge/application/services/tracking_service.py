@@ -35,7 +35,7 @@ class TrackingService:
         collection = self.visitor_registry.get_or_create_collection(frame.collection_id)
 
         # Ensure all composites have a (new) visitor
-        recognized_composites = self.face_recognizer.recognize_faces(paired_composites)
+        recognized_composites = self.face_recognizer.recognize_faces(uow, paired_composites)
         self._ensure_visitors_for(recognized_composites, frame, collection)
 
         dirty_visitors = {}  

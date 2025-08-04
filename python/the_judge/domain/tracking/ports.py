@@ -38,7 +38,7 @@ class FaceBodyMatcherPort(ABC):
 
 class FaceRecognizerPort(ABC):
     @abstractmethod
-    def recognize_faces(self, faces: List[Composite]) -> List[Composite]:
+    def recognize_faces(self, uow, faces: List[Composite]) -> List[Composite]:
         pass
 
     @abstractmethod

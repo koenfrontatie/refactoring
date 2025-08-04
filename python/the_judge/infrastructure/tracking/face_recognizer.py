@@ -25,26 +25,25 @@ class FaceRecognizer(FaceRecognizerPort):
         self.uow_factory = uow_factory
         self.threshold = threshold
 
-    def recognize_faces(self, faces: List[Composite]) -> List[Composite]:
+    def recognize_faces(self, uow: AbstractUnitOfWork, faces: List[Composite]) -> List[Composite]:
         """Recognize faces against known embeddings in database. Returns composite objects with matched visitors attached."""
         if not faces:
             return []
 
         results = []
+        
+        # Get all embeddings from repository
+        all_embeddings = uow.repository.list(FaceEmbedding)
 
-        with self.uow_factory() as uow:
-            # Get all embeddings from repository
-            all_embeddings = uow.repository.list(FaceEmbedding)
-
-            for face_composite in faces:
-                visitor = self._find_visitor(face_composite, all_embeddings, uow)
-                updated_composite = Composite(
-                    face=face_composite.face,
-                    embedding=face_composite.embedding,
-                    body=face_composite.body,
-                    visitor=visitor
-                )
-                results.append(updated_composite)
+        for face_composite in faces:
+            visitor = self._find_visitor(face_composite, all_embeddings, uow)
+            updated_composite = Composite(
+                face=face_composite.face,
+                embedding=face_composite.embedding,
+                body=face_composite.body,
+                visitor=visitor
+            )
+            results.append(updated_composite)
 
         return results
 
