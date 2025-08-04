@@ -6,7 +6,7 @@ from the_judge.domain.tracking.model import Visitor, Detection, Face, FaceEmbedd
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.application.messagebus import MessageBus
-from the_judge.domain.tracking.events import FrameProcessed, SessionStarted, SessionEnded
+from the_judge.domain.tracking.events import FrameProcessed, SessionStarted, SessionEnded, VisitorExpired, VisitorWentMissing, VisitorReturned, VisitorPromoted
 from the_judge.application.services.visitor_registry import VisitorRegistry
 from the_judge.common.logger import setup_logger
 from the_judge.common.datetime_utils import now
@@ -49,22 +49,7 @@ class TrackingService:
             detections.append(composite.visitor.create_detection(frame, composite))
             dirty_visitors[composite.visitor.id] = composite.visitor
 
-        # Check for timeouts of all visitors in registry
-        expired_visitors, missing_visitors = self.visitor_registry.check_visitor_timeouts(recognized_composites)
-        
-        # missing visitors should end their sessions and set current session to none after ending and persisting the session
-        dirty_ended_sessions = []
-
-        for visitor in missing_visitors:
-            ended_session = visitor.end_current_session(frame)
-            if ended_session:
-                dirty_ended_sessions.append(ended_session)
-            dirty_visitors[visitor.id] = visitor
-
-        # expired temporary visitors should be removed entirely
-        self._cleanup_expired_visitors(uow, expired_visitors)
-
-        self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors.values(), dirty_ended_sessions)
+        self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors.values())
 
         self._publish_visitor_events(recognized_composites)
         
@@ -88,7 +73,7 @@ class TrackingService:
     def _persist_data(
             self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 
             composites: List[Composite], detections: List[Detection], 
-            dirty_visitors: dict, dirty_sessions: List[VisitorSession]) -> None:
+            dirty_visitors: dict) -> None:
 
         uow.repository.add(frame)
         
@@ -107,15 +92,42 @@ class TrackingService:
             if visitor.current_session:
                 uow.repository.merge(visitor.current_session)
 
-        for session in dirty_sessions:
-            uow.repository.merge(session)
-
     def _publish_visitor_events(self, composites: List[Composite]) -> None:
         for composite in composites:
             if composite.visitor:
                 for event in getattr(composite.visitor, 'events', []):
                     self.bus.handle(event)
                 composite.visitor.events.clear()
+
+
+    def handle_timeouts(self) -> None:
+        """Check for expired and missing visitors and handle them separately."""
+        with self.uow_factory() as uow:
+            current_time = now()
+            sessions = uow.repository.list_by(VisitorSession, ended_at=None)
+            visitors: List[Visitor] = []
+            for session in sessions:
+                visitor = uow.repository.get(Visitor, session.visitor_id)
+                if visitor:
+                    visitor.current_session = session
+                    visitor.update_state(current_time)
+                    visitors.append(visitor)
+
+            expired_visitors = [v for v in visitors if any(isinstance(e, VisitorExpired) for e in v.events)]
+            missing_visitors = [v for v in visitors if any(isinstance(e, VisitorWentMissing) for e in v.events)]
+
+            for visitor in missing_visitors:
+                if visitor.current_session and visitor.current_session.is_active:
+                    visitor.current_session.end(current_time)
+                    uow.repository.merge(visitor.current_session)
+                visitor.current_session = None
+                uow.repository.merge(visitor)
+                for event in visitor.events:
+                    self.bus.handle(event)
+                visitor.events.clear()
+
+            self._cleanup_expired_visitors(uow, expired_visitors)
+            uow.commit()
 
     def _cleanup_expired_visitors(self, uow: AbstractUnitOfWork, expired_visitors: List[Visitor]) -> None:
         for visitor in expired_visitors:
@@ -125,21 +137,19 @@ class TrackingService:
         for event in visitor.events:
             self.bus.handle(event)
         visitor.events.clear()
-        
+
         detections = uow.repository.list_by(Detection, visitor_id=visitor.id)
-        embeddings = {detection.embedding for detection in detections}
-        
+        embeddings = {d.embedding for d in detections}
+
         for detection in detections:
             uow.repository.delete(detection)
-        
         for embedding in embeddings:
             uow.repository.delete(embedding)
-        
-        # Delete all sessions for this visitor
+
         sessions = uow.repository.list_by(VisitorSession, visitor_id=visitor.id)
         for session in sessions:
             uow.repository.delete(session)
-        
+
         visitor_entity = uow.repository.get(Visitor, visitor.id)
         if visitor_entity:
             uow.repository.delete(visitor_entity)

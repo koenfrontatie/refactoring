@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, Float, JSON, Enum, ForeignKey
+from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, Float, JSON, Enum, ForeignKey, event
 from sqlalchemy.orm import registry, relationship
 from the_judge.domain.tracking.model import Frame, Face, Body, Detection, Visitor, FaceEmbedding, VisitorState, VisitorSession
 from the_judge.infrastructure.db.types.numpy_array import NumpyArray
@@ -121,5 +121,21 @@ def start_mappers():
         'body': relationship('Body', lazy='select'),
         'visitor': relationship('Visitor', lazy='select')
     })
+
+    def _init_transients(v):
+        # idempotent: if already set (e.g., newly created in-memory), do nothing
+        if not hasattr(v, "events") or v.events is None:
+            v.events = []
+
+    @event.listens_for(Visitor, "load")
+    def _visitor_on_load(target, context):
+        _init_transients(target)
+
+    # Optional but helpful if you use expire/refresh cycles
+    @event.listens_for(Visitor, "refresh")
+    def _visitor_on_refresh(target, context, attrs):
+        _init_transients(target)
+
+
 
     

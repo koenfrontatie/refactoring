@@ -1,10 +1,15 @@
 import logging
+import warnings
 import sys
 from typing import Optional
 
 def setup_logger(name: str, level: Optional[str] = None) -> logging.Logger:
+    warnings.filterwarnings(
+        "ignore",
+        category=FutureWarning
+    )
+
     logger = logging.getLogger(name)
-    
     if logger.handlers:
         return logger
     

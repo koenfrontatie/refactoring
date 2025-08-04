@@ -63,12 +63,14 @@ class FrameProcessingService:
             
             #matched_body_ids = {comp.body.id for comp in paired_composites if comp.body}
             #unmatched_bodies = [body for body in bodies if body.id not in matched_body_ids]
-
+            
             with self.uow_factory() as uow:
                 uow.repository.add(frame)
                 self.tracking_service.handle_frame(uow, frame, paired_composites, bodies)
                 logger.info("Processed frame %s from collection %s: %d faces, %d bodies", frame.id, frame.collection_id, len(composites), len(bodies))
                 uow.commit()
+
+            self.tracking_service.handle_timeouts()
 
         except Exception as exc:
             logger.exception("Error processing frame %s", frame.id)
