@@ -44,7 +44,7 @@ class TrackingService:
         # Update state of detected visitors and create detections.
         for composite in recognized_composites:
             is_new_in_collection = self.collection_buffer.add_composite(composite)
-            composite.visitor.mark_sighting(composite.face.captured_at, is_new_in_collection)
+            composite.visitor.mark_sighting(frame.captured_at, is_new_in_collection)
             composite.visitor.update_state(composite.face.captured_at)
             detections.append(composite.visitor.create_detection(frame, composite))
             dirty_visitors[composite.visitor.id] = composite.visitor
@@ -69,8 +69,9 @@ class TrackingService:
                     )
                 else:
                     active_session = uow.repository.get_by(VisitorSession, visitor_id=visitor.id, ended_at=None)
-                    visitor.current_session = active_session
-                    if not visitor.current_session:
+                    if active_session:
+                        visitor.current_session = uow.repository.merge(active_session)
+                    else:
                         visitor.current_session = VisitorSession.create_new(
                             visitor_id=visitor.id,
                             frame=frame,
@@ -96,9 +97,9 @@ class TrackingService:
             uow.repository.add(detection)
         
         for visitor in dirty_visitors:
-            uow.repository.merge(visitor)
             if visitor.current_session:
                 uow.repository.merge(visitor.current_session)
+            uow.repository.merge(visitor)
 
     def _publish_visitor_events(self, composites: List[Composite]) -> None:
         for composite in composites:
