@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from abc import ABC
 from typing import Optional
-from .model import Frame
+from the_judge.domain.tracking.model import Frame
 
 class Event(ABC):
     pass
