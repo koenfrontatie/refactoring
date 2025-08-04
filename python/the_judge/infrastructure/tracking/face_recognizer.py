@@ -78,7 +78,7 @@ class FaceRecognizer(FaceRecognizerPort):
         detection = uow.repository.get_by(Detection, embedding_id=best_embedding.id)
         
         if detection:
-            visitor_id = detection.visitor_record.get('id')
+            visitor_id = detection.visitor.id
             if visitor_id:
                 # Step 3: Get full Visitor object
                 visitor = uow.repository.get(Visitor, visitor_id)

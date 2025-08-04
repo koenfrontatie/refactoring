@@ -113,7 +113,7 @@ class TrackingService:
     def _publish_visitor_events(self, composites: List[Composite]) -> None:
         for composite in composites:
             if composite.visitor:
-                for event in composite.visitor.events:
+                for event in getattr(composite.visitor, 'events', []):
                     self.bus.handle(event)
                 composite.visitor.events.clear()
 

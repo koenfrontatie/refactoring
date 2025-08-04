@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, LargeBinary, Float, JSON, Enum, ForeignKey
+from sqlalchemy import MetaData, Table, Column, Integer, String, DateTime, LargeBinary, Float, JSON, Enum, ForeignKey, event
 from sqlalchemy.orm import registry, relationship
 from the_judge.domain.tracking.model import Frame, Face, Body, Detection, Visitor, FaceEmbedding, VisitorState, VisitorSession
 from the_judge.infrastructure.db.types.numpy_array import NumpyArray
@@ -92,7 +92,13 @@ sessions = Table(
 def start_mappers():
     mapper_registry.map_imperatively(Frame, frames)
     mapper_registry.map_imperatively(FaceEmbedding, face_embeddings)
-    mapper_registry.map_imperatively(Visitor, visitors)
+    mapper_registry.map_imperatively(Visitor, visitors, properties={
+        'current_session': relationship('VisitorSession', 
+                                       primaryjoin='and_(Visitor.id == VisitorSession.visitor_id, VisitorSession.ended_at == None)',
+                                       uselist=False,
+                                       lazy='select'
+                                       )
+    })
     
     mapper_registry.map_imperatively(Face, faces, properties={
         'frame': relationship('Frame', lazy='select'),
@@ -104,7 +110,6 @@ def start_mappers():
     })
     
     mapper_registry.map_imperatively(VisitorSession, sessions, properties={
-        'visitor': relationship('Visitor', lazy='select'),
         'start_frame': relationship('Frame', foreign_keys=[sessions.c.start_frame_id], lazy='select'),
         'end_frame': relationship('Frame', foreign_keys=[sessions.c.end_frame_id], lazy='select')
     })
@@ -116,3 +121,11 @@ def start_mappers():
         'body': relationship('Body', lazy='select'),
         'visitor': relationship('Visitor', lazy='select')
     })
+
+@event.listens_for(Visitor, 'load')
+@event.listens_for(Visitor, 'refresh')
+def initialize_visitor_events(target, context, attrs=None):
+    if not hasattr(target, 'events'):
+        target.events = []
+
+    

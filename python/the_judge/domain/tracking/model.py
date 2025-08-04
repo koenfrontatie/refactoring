@@ -6,7 +6,6 @@ import numpy as np
 from enum import Enum
 import uuid
 
-from the_judge.domain.tracking.events import VisitorExpired, VisitorPromoted, VisitorWentMissing, VisitorReturned
 from the_judge.common import datetime_utils
 
 @dataclass
@@ -95,7 +94,7 @@ class Visitor:
     last_seen: datetime = field(default_factory=datetime_utils.now)
     created_at: datetime = field(default_factory=datetime_utils.now)
     current_session: Optional[VisitorSession] = None
-    events: List = field(default_factory=list, init=False, compare=False)
+    events: List = field(default_factory=list, compare=False)
 
     @classmethod
     def create_new(cls, name: str, current_time: datetime) -> "Visitor":
@@ -113,21 +112,25 @@ class Visitor:
         old_state = self.state
 
         if self._should_be_removed(current_time):
+            from the_judge.domain.tracking.events import VisitorExpired
             self.events.append(VisitorExpired(visitor_id=self.id))
 
         elif self._should_be_promoted(current_time):
             self.state = VisitorState.ACTIVE
             if self.state != old_state:
+                from the_judge.domain.tracking.events import VisitorPromoted
                 self.events.append(VisitorPromoted(visitor_id=self.id))
 
         elif self._should_go_missing(current_time):
             self.state = VisitorState.MISSING
             if self.state != old_state:
+                from the_judge.domain.tracking.events import VisitorWentMissing
                 self.events.append(VisitorWentMissing(visitor_id=self.id))
 
         elif self._should_be_returning(current_time):
             self.state = VisitorState.RETURNING
             if self.state != old_state:
+                from the_judge.domain.tracking.events import VisitorReturned
                 self.events.append(VisitorReturned(visitor_id=self.id))
 
         elif self._should_be_active(current_time):
