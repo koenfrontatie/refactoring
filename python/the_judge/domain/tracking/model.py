@@ -172,7 +172,10 @@ class Visitor:
                 and (current_time - self.last_seen) > self.MISSING_AFTER)
     
     def _should_be_returning(self, current_time) -> bool:
-        return (self.state in {VisitorState.MISSING, VisitorState.RETURNING}
+        if self.state == VisitorState.MISSING:
+            return True
+        
+        return (self.state == VisitorState.RETURNING
                 and self.current_session is not None
                 and (current_time - self.current_session.started_at) <= self.RETURNING_WINDOW)
     
