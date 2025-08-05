@@ -5,8 +5,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 import uuid
 import numpy as np
 
-from the_judge.domain.tracking.model import Face, FaceEmbedding, Body, Composite, Visitor, VisitorState
-from the_judge.application.tracking_service import FrameCollection
+from the_judge.domain.tracking.model import Face, FaceEmbedding, Body, Composite, Visitor, VisitorState, VisitorCollection
+from the_judge.application.services.collection_buffer import CollectionBuffer
 from the_judge.common.datetime_utils import now
 
 
@@ -37,10 +37,8 @@ def create_test_composite(visitor_id=None):
             id=visitor_id,
             name="Test Visitor",
             state=VisitorState.TEMPORARY,
-            face_id=face.id,
-            body_id=None,
             seen_count=1,
-            captured_at=now(),
+            last_seen=now(),
             created_at=now()
         )
     
@@ -55,60 +53,63 @@ def create_test_composite(visitor_id=None):
 def test_collection_buffer():
     print("=== Testing Collection Buffer ===\n")
     
-    # Test 1: Basic buffer operations
     print("Testing: Basic buffer operations")
     
-    buffer = FrameCollection("test-collection")
-    assert len(buffer.get_composites()) == 0
+    buffer = CollectionBuffer()
+    assert buffer.current_collection is None
     print("✓ Empty buffer initialized correctly")
     
-    # Add composite without visitor
-    composite1 = create_test_composite()
-    buffer.add_composite(composite1)
+    collection = buffer.get_or_create_collection("test-collection")
+    assert collection.id == "test-collection"
+    assert len(collection.composites) == 0
+    assert buffer.current_collection is not None
+    print("✓ Collection created successfully")
     
-    assert len(buffer.get_composites()) == 1
-    assert buffer.has_visitor("nonexistent") == False
+    composite1 = create_test_composite()
+    is_new = buffer.add_composite(composite1)
+    
+    assert len(buffer.current_collection.composites) == 1
+    assert is_new == False  # No visitor, so not considered "new"
     print("✓ Composite without visitor added correctly")
     
-    # Add composite with visitor
     composite2 = create_test_composite(visitor_id="visitor-123")
-    buffer.add_composite(composite2)
+    is_new = buffer.add_composite(composite2)
     
-    assert len(buffer.get_composites()) == 2
-    assert buffer.has_visitor("visitor-123") == True
-    assert buffer.has_visitor("nonexistent") == False
+    assert len(buffer.current_collection.composites) == 2
+    assert is_new == True  # New visitor in collection
     print("✓ Composite with visitor added correctly")
     
-    # Test 2: Buffer clearing
-    print("\nTesting: Buffer clearing")
+    print("\nTesting: Collection switching")
     
-    buffer.clear()
-    assert len(buffer.get_composites()) == 0
-    assert buffer.has_visitor("visitor-123") == False
-    print("✓ Buffer cleared successfully")
+    new_collection = buffer.get_or_create_collection("new-collection")
+    assert new_collection.id == "new-collection"
+    assert len(new_collection.composites) == 0
+    assert buffer.current_collection.id == "new-collection"
+    print("✓ Collection switched successfully")
     
-    # Test 3: Multiple visitors
-    print("\nTesting: Multiple visitors in buffer")
+    print("\nTesting: Same collection persistence")
+    
+    same_collection = buffer.get_or_create_collection("new-collection")
+    assert same_collection.id == "new-collection"
+    assert same_collection is buffer.current_collection
+    print("✓ Same collection returned when ID matches")
+    
+    print("\nTesting: Visitor deduplication in collection")
     
     composite_a = create_test_composite(visitor_id="visitor-A")
-    composite_b = create_test_composite(visitor_id="visitor-B")
-    composite_c = create_test_composite()  # No visitor
+    composite_b = create_test_composite(visitor_id="visitor-A")  # Same visitor
+    composite_c = create_test_composite(visitor_id="visitor-B")  # Different visitor
     
-    buffer.add_composite(composite_a)
-    buffer.add_composite(composite_b)
-    buffer.add_composite(composite_c)
+    is_new_a1 = buffer.add_composite(composite_a)
+    is_new_a2 = buffer.add_composite(composite_b)  # Same visitor again
+    is_new_b = buffer.add_composite(composite_c)
     
-    assert len(buffer.get_composites()) == 3
-    assert buffer.has_visitor("visitor-A") == True
-    assert buffer.has_visitor("visitor-B") == True
-    assert buffer.has_visitor("visitor-C") == False
-    print("✓ Multiple visitors handled correctly")
+    assert is_new_a1 == True   # First time seeing visitor-A
+    assert is_new_a2 == False  # Second time seeing visitor-A (not new)
+    assert is_new_b == True    # First time seeing visitor-B
     
-    # Test 4: Collection ID consistency
-    print("\nTesting: Collection ID consistency")
-    
-    assert buffer.collection_id == "test-collection"
-    print("✓ Collection ID stored correctly")
+    assert len(buffer.current_collection.composites) == 3
+    print("✓ Visitor deduplication works correctly")
     
     print("\n🎉 All collection buffer tests passed!")
 
@@ -116,23 +117,18 @@ def test_collection_buffer():
 def test_composite_enrichment():
     print("\n=== Testing Composite Enrichment ===\n")
     
-    # Test 1: Progressive enrichment
     print("Testing: Progressive enrichment of composite")
     
-    # Start with basic composite
     composite = create_test_composite()
     assert composite.visitor is None
     print("✓ Initial composite has no visitor")
     
-    # Add visitor (simulating recognition)
     visitor = Visitor(
         id="visitor-456",
         name="Recognized Visitor",
         state=VisitorState.TEMPORARY,
-        face_id=composite.face.id,
-        body_id=None,
         seen_count=1,
-        captured_at=now(),
+        last_seen=now(),
         created_at=now()
     )
     
@@ -141,7 +137,6 @@ def test_composite_enrichment():
     assert composite.visitor.id == "visitor-456"
     print("✓ Visitor added to composite successfully")
     
-    # Add body (simulating body matching)
     body = Body(
         id="body-123",
         frame_id="frame-1",
@@ -154,7 +149,6 @@ def test_composite_enrichment():
     assert composite.body.id == "body-123"
     print("✓ Body added to composite successfully")
     
-    # Test 2: Complete composite validation
     print("\nTesting: Complete composite validation")
     
     assert composite.face is not None
