@@ -36,7 +36,7 @@ class TrackingService:
 
         # Ensure all composites have a (new) visitor
         recognized_composites = self.face_recognizer.recognize_faces(uow, paired_composites)
-        self._handle_unmatched_composites(uow, recognized_composites, frame, collection)
+        self._handle_unmatched_composites(recognized_composites, collection)
 
         dirty_visitors = {}  
         detections = []
@@ -55,7 +55,11 @@ class TrackingService:
         
         self.bus.handle(FrameProcessed(frame.id, len(detections)))
 
-    def _handle_unmatched_composites(self, uow: AbstractUnitOfWork, composites: List[Composite], frame: Frame, collection: VisitorCollection) -> None:
+    def _handle_unmatched_composites(
+            self, 
+            composites: List[Composite], 
+            collection: VisitorCollection) -> None:
+        
         for composite in composites:
             # There may be matches with current collection buffer, either match or create a new visitor.
             if not composite.visitor:
@@ -88,21 +92,22 @@ class TrackingService:
             if visitor.current_session:
                 uow.repository.merge(visitor.current_session)
 
-    def _publish_visitor_events(self, composites: List[Composite]) -> None:
-        for composite in composites:
-            if composite.visitor:
-                for event in getattr(composite.visitor, 'events', []):
-                    self.bus.handle(event)
-                composite.visitor.events.clear()
-
-
     def handle_timeouts(self) -> None:
         with self.uow_factory() as uow:
             current_time = now()
             
-            all_visitors = uow.repository.list(Visitor)
-            active_visitors = [v for v in all_visitors if v.current_session and not v.current_session.ended_at]
+            # Get visitors with active sessions 
+            active_sessions = uow.repository.list_by(VisitorSession, ended_at=None)
+            visitor_ids = [session.visitor_id for session in active_sessions]
             
+            # Get the actual visitor objects
+            active_visitors = []
+            for visitor_id in visitor_ids:
+                visitor = uow.repository.get(Visitor, visitor_id)
+                if visitor:
+                    active_visitors.append(visitor)
+            
+            # Let domain model handle state transitions
             for visitor in active_visitors:
                 visitor.update_state(current_time)
                 
@@ -110,17 +115,24 @@ class TrackingService:
                 if visitor.current_session:
                     uow.repository.merge(visitor.current_session)
                 
+                # Publish any domain events generated during state transition
                 for event in visitor.events:
                     self.bus.handle(event)
                 visitor.events.clear()
             
-            cutoff = current_time - Visitor.REMOVE_AFTER
-            temporary_visitors = uow.repository.list_by(Visitor, state=VisitorState.TEMPORARY)
-            expired_visitors = [v for v in temporary_visitors if v.last_seen < cutoff]
+            # Now handle visitors that became expired during update_state
+            expired_visitors = [v for v in active_visitors if v.state == VisitorState.EXPIRED]
             for visitor in expired_visitors:
                 self._cleanup_visitor(uow, visitor)
             
             uow.commit()
+
+    def _publish_visitor_events(self, composites: List[Composite]) -> None:
+        for composite in composites:
+            if composite.visitor:
+                for event in getattr(composite.visitor, 'events', []):
+                    self.bus.handle(event)
+                composite.visitor.events.clear()
 
     def _cleanup_visitor(self, uow: AbstractUnitOfWork, visitor: Visitor) -> None:
         for event in visitor.events:

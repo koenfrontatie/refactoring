@@ -18,7 +18,6 @@ class CollectionBuffer:
         return self.current_collection
 
     def add_composite(self, composite: Composite) -> bool:
-        # Update global visitor state
         visitor = composite.visitor        
         # Check if new in current collection
         if self.current_collection:
