@@ -21,11 +21,14 @@ from the_judge.entrypoints.socket_client import SocketIOClient
 class App:
     ws_client: SocketIOClient
     bus: MessageBus
+    tracking_service: TrackingService
 
     async def start(self):
+        await self.tracking_service.start_timeout_worker()
         await self.ws_client.connect()
 
     async def stop(self):
+        await self.tracking_service.stop_timeout_worker() 
         await self.ws_client.disconnect()
 
 
@@ -73,4 +76,4 @@ def create_app() -> App:
     # Only the entrypoint at this level
     ws_client = SocketIOClient(frame_collector)
     
-    return App(ws_client=ws_client, bus=bus)
+    return App(ws_client=ws_client, bus=bus, tracking_service=tracking_service)

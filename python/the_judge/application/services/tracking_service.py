@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional, Callable
 from randomname import get_name
 import uuid
+import asyncio
 
 from the_judge.domain.tracking.model import Visitor, Detection, VisitorState, Body, Composite, Frame, VisitorSession, VisitorCollection
 from the_judge.domain.tracking.ports import FaceRecognizerPort
@@ -25,6 +26,8 @@ class TrackingService:
         self.uow_factory = uow_factory
         self.bus = bus
         self.collection_buffer = CollectionBuffer()
+        self._timeout_task = None
+        self._running = False
 
     def handle_frame(
             self, uow: AbstractUnitOfWork, 
@@ -73,7 +76,7 @@ class TrackingService:
     def _persist_data(
             self, uow: AbstractUnitOfWork, frame: Frame, bodies: List[Body], 
             composites: List[Composite], detections: List[Detection], 
-            dirty_visitors: dict) -> None:
+            dirty_visitors) -> None:
 
         uow.repository.add(frame)
         
@@ -92,7 +95,29 @@ class TrackingService:
             if visitor.current_session:
                 uow.repository.merge(visitor.current_session)
 
-    def handle_timeouts(self) -> None:
+    def _publish_visitor_events(self, composites: List[Composite]) -> None:
+        for composite in composites:
+            if composite.visitor:
+                for event in getattr(composite.visitor, 'events', []):
+                    self.bus.handle(event)
+                composite.visitor.events.clear()
+
+    def _cleanup_visitor(self, uow: AbstractUnitOfWork, visitor: Visitor) -> None:
+        for event in visitor.events:
+            self.bus.handle(event)
+        visitor.events.clear()
+
+        detections = uow.repository.list_by(Detection, visitor_id=visitor.id)
+        embeddings = {d.embedding for d in detections}
+
+        for detection in detections:
+            uow.repository.delete(detection)
+        for embedding in embeddings:
+            uow.repository.delete(embedding)
+
+        uow.repository.delete(visitor)
+
+    def _handle_timeouts(self) -> None:
         with self.uow_factory() as uow:
             current_time = now()
             
@@ -127,24 +152,28 @@ class TrackingService:
             
             uow.commit()
 
-    def _publish_visitor_events(self, composites: List[Composite]) -> None:
-        for composite in composites:
-            if composite.visitor:
-                for event in getattr(composite.visitor, 'events', []):
-                    self.bus.handle(event)
-                composite.visitor.events.clear()
+    async def start_timeout_worker(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        logger.info("Starting timeout worker")
+        self._timeout_task = asyncio.create_task(self._timeout_loop())
 
-    def _cleanup_visitor(self, uow: AbstractUnitOfWork, visitor: Visitor) -> None:
-        for event in visitor.events:
-            self.bus.handle(event)
-        visitor.events.clear()
+    async def stop_timeout_worker(self) -> None:
+        self._running = False
+        if self._timeout_task:
+            self._timeout_task.cancel()
+            try:
+                await self._timeout_task
+            except asyncio.CancelledError:
+                pass
 
-        detections = uow.repository.list_by(Detection, visitor_id=visitor.id)
-        embeddings = {d.embedding for d in detections}
-
-        for detection in detections:
-            uow.repository.delete(detection)
-        for embedding in embeddings:
-            uow.repository.delete(embedding)
-
-        uow.repository.delete(visitor)
+    async def _timeout_loop(self) -> None:
+        logger.info("Timeout worker loop started")
+        while self._running:
+            await asyncio.sleep(1)
+            try:
+                logger.debug("Running timeout check")
+                self._handle_timeouts()
+            except Exception as e:
+                logger.error(f"Timeout worker error: {e}")

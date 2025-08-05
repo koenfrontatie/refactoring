@@ -68,8 +68,6 @@ class FrameProcessingService:
                 logger.info("Processed frame %s from collection %s: %d faces, %d bodies", frame.id, frame.collection_id, len(composites), len(bodies))
                 uow.commit()
 
-            self.tracking_service.handle_timeouts()
-
         except Exception:
             logger.exception("Error processing frame %s", frame_id)
 
