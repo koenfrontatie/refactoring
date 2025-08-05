@@ -7,6 +7,7 @@ from enum import Enum
 import uuid
 
 from the_judge.common import datetime_utils
+from the_judge.domain.tracking.events import VisitorPromoted, VisitorWentMissing, VisitorReturned, VisitorExpired, SessionStarted, SessionEnded  
 
 @dataclass
 class Frame:
@@ -79,6 +80,7 @@ class VisitorState(Enum):
     ACTIVE = "active"
     MISSING = "missing"
     RETURNING = "returning"
+    EXPIRED = "expired"
 
 @dataclass
 class Visitor:
@@ -100,58 +102,43 @@ class Visitor:
     def create_new(cls, name: str, current_time: datetime) -> "Visitor":
         return cls(name=name, last_seen=current_time, created_at=current_time)
 
-    def mark_sighting(self, current_time: datetime, increment_seen: bool) -> None:
+    def mark_sighting(self, frame: Frame, increment_seen: bool) -> None:
         if increment_seen:
             self.seen_count += 1
         self.frame_count += 1
-        self.last_seen = current_time
-        if self.current_session:
-            self.current_session.increment_frame(current_time)
+        self.last_seen = frame.captured_at
+
+        if self.current_session and self.current_session.is_active:
+            self.current_session.increment_frame(frame)
+        elif self.current_session is None or not self.current_session.is_active:
+            self.current_session = VisitorSession.create_new(self.id, frame)
+            self.events.append(SessionStarted(visitor=self, session=self.current_session))
 
     def update_state(self, current_time: datetime) -> None:
         old_state = self.state
 
         if self._should_be_removed(current_time):
-            from the_judge.domain.tracking.events import VisitorExpired
-            self.events.append(VisitorExpired(visitor_id=self.id))
+            self.state = VisitorState.EXPIRED
+            self._emit_event_if_changed(old_state, VisitorExpired(visitor=self))
 
         elif self._should_be_promoted(current_time):
             self.state = VisitorState.ACTIVE
-            if self.state != old_state:
-                from the_judge.domain.tracking.events import VisitorPromoted
-                self.events.append(VisitorPromoted(visitor_id=self.id))
+            self._emit_event_if_changed(old_state, VisitorPromoted(visitor=self))
 
         elif self._should_go_missing(current_time):
             self.state = VisitorState.MISSING
-            if self.state != old_state:
-                if self.current_session and self.current_session.is_active:
-                    self.current_session.end(current_time)
-                    from the_judge.domain.tracking.events import SessionEnded
-                    self.events.append(SessionEnded(
-                        visitor_id=self.id,
-                        session_id=self.current_session.id,
-                        reason="missing"
-                    ))
-                    self.current_session = None
-                from the_judge.domain.tracking.events import VisitorWentMissing
-                self.events.append(VisitorWentMissing(visitor_id=self.id))
+    
+            if self.current_session and self.current_session.is_active:
+                self.current_session.end(current_time)
+                self._emit_event_if_changed(old_state, SessionEnded(visitor=self, session=self.current_session))
+
+            self._emit_event_if_changed(old_state, VisitorWentMissing(visitor=self))
 
         elif self._should_be_returning(current_time):
             self.state = VisitorState.RETURNING
-            if self.state != old_state:
-                from the_judge.domain.tracking.events import VisitorReturned
-                self.events.append(VisitorReturned(visitor_id=self.id))
-
-        elif self._should_be_active(current_time):
-            self.state = VisitorState.ACTIVE
+            self._emit_event_if_changed(old_state, VisitorReturned(visitor=self))
 
     def create_detection(self, frame: Frame, composite: Composite) -> Detection:
-        if composite.face.frame_id != frame.id:
-            raise ValueError(f"Face belongs to frame {composite.face.frame_id}, not {frame.id}")
-        
-        if composite.body and composite.body.frame_id != frame.id:
-            raise ValueError(f"Body belongs to frame {composite.body.frame_id}, not {frame.id}")
-        
         return Detection(
             id=str(uuid.uuid4()),
             frame=frame,
@@ -187,6 +174,10 @@ class Visitor:
         return (self.state in {VisitorState.ACTIVE, VisitorState.RETURNING}
                 and self.current_session is not None
                 and (current_time - self.current_session.started_at) > self.RETURNING_WINDOW)
+    
+    def _emit_event_if_changed(self, old_state: VisitorState, event) -> None:
+        if self.state != old_state:
+            self.events.append(event)
 
 @dataclass
 class VisitorSession:
@@ -207,8 +198,8 @@ class VisitorSession:
             captured_at=frame.captured_at,
         )
 
-    def increment_frame(self, captured_at: datetime) -> None:
-        self.captured_at = captured_at
+    def increment_frame(self, frame: Frame) -> None:
+        self.captured_at = frame.captured_at
         self.frame_count += 1
 
     def end(self, ended_at: datetime) -> None:

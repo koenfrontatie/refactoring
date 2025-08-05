@@ -36,7 +36,7 @@ class TrackingService:
 
         # Ensure all composites have a (new) visitor
         recognized_composites = self.face_recognizer.recognize_faces(uow, paired_composites)
-        self._ensure_visitors_for(uow, recognized_composites, frame, collection)
+        self._handle_unmatched_composites(uow, recognized_composites, frame, collection)
 
         dirty_visitors = {}  
         detections = []
@@ -44,8 +44,8 @@ class TrackingService:
         # Update state of detected visitors and create detections.
         for composite in recognized_composites:
             is_new_in_collection = self.collection_buffer.add_composite(composite)
-            composite.visitor.mark_sighting(frame.captured_at, is_new_in_collection)
-            composite.visitor.update_state(composite.face.captured_at)
+            composite.visitor.mark_sighting(frame, is_new_in_collection)
+            composite.visitor.update_state(frame.captured_at)
             detections.append(composite.visitor.create_detection(frame, composite))
             dirty_visitors[composite.visitor.id] = composite.visitor
 
@@ -55,7 +55,7 @@ class TrackingService:
         
         self.bus.handle(FrameProcessed(frame.id, len(detections)))
 
-    def _ensure_visitors_for(self, uow: AbstractUnitOfWork, composites: List[Composite], frame: Frame, collection: VisitorCollection) -> None:
+    def _handle_unmatched_composites(self, uow: AbstractUnitOfWork, composites: List[Composite], frame: Frame, collection: VisitorCollection) -> None:
         for composite in composites:
             # There may be matches with current collection buffer, either match or create a new visitor.
             if not composite.visitor:
@@ -63,17 +63,7 @@ class TrackingService:
                 
                 if not visitor:
                     visitor = Visitor.create_new(get_name(), composite.face.captured_at)
-                    visitor.current_session = VisitorSession.create_new(
-                        visitor_id=visitor.id,
-                        frame=frame,
-                    )
-                else:
-                    if not visitor.current_session:
-                        visitor.current_session = VisitorSession.create_new(
-                            visitor_id=visitor.id,
-                            frame=frame,
-                        )
-
+                    
                 composite.visitor = visitor
 
     def _persist_data(
@@ -96,8 +86,7 @@ class TrackingService:
         for visitor in dirty_visitors:
             uow.repository.merge(visitor)
             if visitor.current_session:
-                if visitor.current_session.ended_at is None:
-                    uow.repository.merge(visitor.current_session)
+                uow.repository.merge(visitor.current_session)
 
     def _publish_visitor_events(self, composites: List[Composite]) -> None:
         for composite in composites:

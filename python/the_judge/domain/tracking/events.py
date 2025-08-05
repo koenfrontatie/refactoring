@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from abc import ABC
-from typing import Optional
-from the_judge.domain.tracking.model import Frame
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from the_judge.domain.tracking.model import Visitor, Frame, VisitorSession
 
 class Event(ABC):
     pass
@@ -12,33 +14,31 @@ class FrameSaved(Event):
 
 @dataclass
 class FrameProcessed(Event):
-    frame_id: str
+    frame: Frame
     detection_count: int
 
 @dataclass
 class VisitorPromoted(Event):
-    visitor_id: str
-
-@dataclass
-class VisitorWentMissing(Event):
-    visitor_id: str
+    visitor: Visitor
 
 @dataclass
 class VisitorReturned(Event):
-    visitor_id: str
+    visitor: Visitor
 
 @dataclass
 class SessionStarted(Event):
-    visitor_id: str
-    session_id: str
-    frame_id: str
+    visitor: Visitor
+    session: VisitorSession
 
 @dataclass
 class SessionEnded(Event):
-    visitor_id: str
-    session_id: str
-    reason: str
+    visitor: Visitor
+    session: VisitorSession
+
+@dataclass
+class VisitorWentMissing(Event):
+    visitor: Visitor
 
 @dataclass
 class VisitorExpired(Event):
-    visitor_id: str
+    visitor: Visitor
