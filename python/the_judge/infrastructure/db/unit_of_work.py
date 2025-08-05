@@ -1,12 +1,12 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from sqlalchemy.orm import Session
-from the_judge.infrastructure.db.repository import AbstractTrackingRepository, TrackingRepository
+from the_judge.infrastructure.db.repository import AbstractRepository, TrackingRepository
 from the_judge.infrastructure.db.engine import get_session_factory
 
 
 class AbstractUnitOfWork(ABC):
-    repository: AbstractTrackingRepository
+    repository: AbstractRepository
 
     def __enter__(self) -> "AbstractUnitOfWork":
         return self

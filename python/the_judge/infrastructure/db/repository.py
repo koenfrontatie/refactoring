@@ -1,28 +1,20 @@
 from typing import Type, Any, Optional, List
-from datetime import datetime
+from dataclasses import asdict
 import uuid
 
 from abc import ABC, abstractmethod
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, inspect, and_
-from the_judge.domain.tracking.model import Frame, Face, Body, Detection, Visitor, VisitorSession, VisitorState
+from sqlalchemy import desc, inspect
+from the_judge.domain.tracking.model import Frame, Face, Body, Detection, Visitor
 
 
-class AbstractTrackingRepository(ABC):
+class AbstractRepository(ABC):
     @abstractmethod
-    def add(self, entity: Any) -> Any:
+    def add(self, entity: Any) -> None:
         raise NotImplementedError
     
     @abstractmethod
-    def get(self, entity_class: Type, entity_id: str) -> Optional[Any]:
-        raise NotImplementedError
-    
-    @abstractmethod
-    def delete(self, entity: Any) -> None:
-        raise NotImplementedError
-        
-    @abstractmethod
-    def merge(self, entity: Any) -> Any:
+    def get(self, entity_class: Type, entity_id: Any) -> Optional[Any]:
         raise NotImplementedError
     
     @abstractmethod
@@ -30,31 +22,31 @@ class AbstractTrackingRepository(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def list_by(self, entity_class: Type, **filters) -> List[Any]:
-        raise NotImplementedError
-    
-    @abstractmethod
     def get_by(self, entity_class: Type, **filters) -> Optional[Any]:
         raise NotImplementedError
     
     @abstractmethod
-    def get_active_visitors(self) -> List[Visitor]:
+    def list_by(self, entity_class: Type, **filters) -> List[Any]:
         raise NotImplementedError
     
     @abstractmethod
-    def get_expired_visitors(self, current_time: datetime) -> List[Visitor]:
+    def delete(self, entity: Any) -> None:
         raise NotImplementedError
     
     @abstractmethod
-    def get_visitor_detections(self, visitor_id: str) -> List[Detection]:
+    def get_recent(self, entity_class: Type, limit: int) -> List[Any]: 
         raise NotImplementedError
-    
+        
     @abstractmethod
-    def get_recent_frames(self, limit: int) -> List[Frame]:
+    def merge(self, entity: Any) -> Any:
+        raise NotImplementedError
+        
+    @abstractmethod
+    def get_all_sorted(self, entity_class: Type, offset: int = 0) -> List[Any]: 
         raise NotImplementedError
 
 
-class TrackingRepository(AbstractTrackingRepository):
+class TrackingRepository:
     def __init__(self, session: Session):
         self.session = session
 
@@ -66,70 +58,69 @@ class TrackingRepository(AbstractTrackingRepository):
         return entity
 
     def get(self, entity_class: Type, entity_id: str) -> Optional[Any]:
-        return (
+        entity = (
             self.session.query(entity_class)
             .filter_by(id=entity_id)
             .first()
         )
+        return entity
+
+    def list(self, entity_class: Type) -> List[Any]:
+        entities = self.session.query(entity_class).all()
+        return entities
+
+    def get_by(self, entity_class: Type, **filters) -> Optional[Any]:
+        """Get first entity matching the given filters."""
+        entity = (
+            self.session.query(entity_class)
+            .filter_by(**filters)
+            .first()
+        )
+        return entity
+    
+    def list_by(self, entity_class: Type, **filters) -> List[Any]:
+        """Get all entities matching the given filters."""
+        entities = (
+            self.session.query(entity_class)
+            .filter_by(**filters)
+            .all()
+        )
+        return entities
     
     def delete(self, entity: Any) -> None:
+        """Delete an entity from the database."""
         self.session.delete(entity)
         self.session.flush()
     
     def merge(self, entity: Any) -> Any:
+        """Merge entity (insert if new, update if exists)."""
         if getattr(entity, "id", None) in (None, ""):
             setattr(entity, "id", str(uuid.uuid4()))
         merged = self.session.merge(entity)
         self.session.flush()
         return merged
 
-    def list(self, entity_class: Type) -> List[Any]:
-        return self.session.query(entity_class).all()
-    
-    def list_by(self, entity_class: Type, **filters) -> List[Any]:
-        query = self.session.query(entity_class)
-        for key, value in filters.items():
-            query = query.filter(getattr(entity_class, key) == value)
-        return query.all()
-    
-    def get_by(self, entity_class: Type, **filters) -> Optional[Any]:
-        query = self.session.query(entity_class)
-        for key, value in filters.items():
-            query = query.filter(getattr(entity_class, key) == value)
-        return query.first()
-
-    def get_active_visitors(self) -> List[Visitor]:
+    def get_recent(self, entity_class: Type, limit: int) -> List[Any]:
+        col = self._order_col(entity_class)
         return (
-            self.session.query(Visitor)
-            .join(VisitorSession, and_(
-                Visitor.id == VisitorSession.visitor_id,
-                VisitorSession.ended_at == None
-            ))
-            .all()
-        )
-    
-    def get_expired_visitors(self, current_time: datetime) -> List[Visitor]:
-        cutoff = current_time - Visitor.REMOVE_AFTER
-        return (
-            self.session.query(Visitor)
-            .filter(
-                Visitor.state == VisitorState.TEMPORARY,
-                Visitor.last_seen < cutoff
-            )
-            .all()
-        )
-    
-    def get_visitor_detections(self, visitor_id: str) -> List[Detection]:
-        return (
-            self.session.query(Detection)
-            .filter_by(visitor_id=visitor_id)
-            .all()
-        )
-    
-    def get_recent_frames(self, limit: int) -> List[Frame]:
-        return (
-            self.session.query(Frame)
-            .order_by(desc(Frame.captured_at))
+            self.session.query(entity_class)
+            .order_by(desc(col))
             .limit(limit)
             .all()
         )
+
+    def get_all_sorted(self, entity_class: Type, offset: int = 0) -> List[Any]:
+        col = self._order_col(entity_class)
+        return (
+            self.session.query(entity_class)
+            .order_by(desc(col))
+            .offset(offset)
+            .all()
+        )
+    
+    def _order_col(self, cls: Type):
+        cols = inspect(cls).c
+        for name in ("captured_at", "pk"):
+            if name in cols:
+                return cols[name]
+        raise ValueError(f"{cls} lacks captured_at and pk columns")

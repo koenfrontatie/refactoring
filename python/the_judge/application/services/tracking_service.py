@@ -100,7 +100,8 @@ class TrackingService:
         with self.uow_factory() as uow:
             current_time = now()
             
-            active_visitors = uow.repository.get_active_visitors()
+            all_visitors = uow.repository.list(Visitor)
+            active_visitors = [v for v in all_visitors if v.current_session and not v.current_session.ended_at]
             
             for visitor in active_visitors:
                 visitor.update_state(current_time)
@@ -113,7 +114,9 @@ class TrackingService:
                     self.bus.handle(event)
                 visitor.events.clear()
             
-            expired_visitors = uow.repository.get_expired_visitors(current_time)
+            cutoff = current_time - Visitor.REMOVE_AFTER
+            temporary_visitors = uow.repository.list_by(Visitor, state=VisitorState.TEMPORARY)
+            expired_visitors = [v for v in temporary_visitors if v.last_seen < cutoff]
             for visitor in expired_visitors:
                 self._cleanup_visitor(uow, visitor)
             
@@ -124,7 +127,7 @@ class TrackingService:
             self.bus.handle(event)
         visitor.events.clear()
 
-        detections = uow.repository.get_visitor_detections(visitor.id)
+        detections = uow.repository.list_by(Detection, visitor_id=visitor.id)
         embeddings = {d.embedding for d in detections}
 
         for detection in detections:
