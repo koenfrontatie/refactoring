@@ -86,7 +86,7 @@ class VisitorState(Enum):
 class Visitor:
     MISSING_AFTER = timedelta(minutes=1)
     RETURNING_WINDOW = timedelta(seconds=30)
-    REMOVE_AFTER = timedelta(minutes=1)
+    REMOVE_AFTER = timedelta(minutes=2)
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = ""

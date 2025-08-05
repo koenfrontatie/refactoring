@@ -6,7 +6,7 @@ from the_judge.common.datetime_utils import now
 
 @dataclass
 class CollectionBuffer:    
-    # Visitor composites from all cameras in latest collection timeframe.
+    # Visitor composites from all cameras in latest collection.
     current_collection: Optional[VisitorCollection] = None
 
     def get_or_create_collection(self, collection_id: str) -> VisitorCollection:
