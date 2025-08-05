@@ -39,7 +39,7 @@ class TrackingService:
 
         # Ensure all composites have a (new) visitor
         recognized_composites = self.face_recognizer.recognize_faces(uow, paired_composites)
-        self._handle_unmatched_composites(recognized_composites, collection)
+        self._handle_unmatched_composites(uow, recognized_composites, collection)
 
         dirty_visitors = {}  
         detections = []
@@ -60,15 +60,18 @@ class TrackingService:
 
     def _handle_unmatched_composites(
             self, 
+            uow: AbstractUnitOfWork,
             composites: List[Composite], 
             collection: VisitorCollection) -> None:
         
         for composite in composites:
             # There may be matches with current collection buffer, either match or create a new visitor.
             if not composite.visitor:
-                visitor = self.face_recognizer.match_against_collection(composite, collection.composites)
+                matched_visitor = self.face_recognizer.match_against_collection(composite, collection.composites)
                 
-                if not visitor:
+                if matched_visitor:
+                    visitor = uow.repository.get(Visitor, matched_visitor.id)
+                else:
                     visitor = Visitor.create_new(get_name(), composite.face.captured_at)
                     
                 composite.visitor = visitor
