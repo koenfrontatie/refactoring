@@ -1,3 +1,7 @@
+import os
+import sys
+import contextlib
+from io import StringIO
 from pathlib import Path
 from insightface.app import FaceAnalysis
 from ultralytics import YOLO
@@ -7,6 +11,19 @@ from the_judge.domain.tracking.ports import FaceMLProvider, BodyMLProvider
 
 logger = setup_logger("Providers")
 
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = devnull
+        sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+
 
 class InsightFaceProvider(FaceMLProvider):
     def __init__(self):
@@ -14,11 +31,12 @@ class InsightFaceProvider(FaceMLProvider):
         model_path = Path(cfg.model_path).resolve() / "insightface"
         model_path.mkdir(parents=True, exist_ok=True)
 
-        self.app = FaceAnalysis(
-            providers=["CUDAExecutionProvider"],
-            root=str(model_path),
-        )
-        self.app.prepare(ctx_id=0, det_size=(640, 640))
+        with suppress_stdout_stderr():
+            self.app = FaceAnalysis(
+                providers=["CUDAExecutionProvider"],
+                root=str(model_path),
+            )
+            self.app.prepare(ctx_id=0, det_size=(640, 640))
         logger.info("InsightFace initialized from %s", model_path)
     
     def get_face_model(self):

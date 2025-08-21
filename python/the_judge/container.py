@@ -10,8 +10,8 @@ from the_judge.infrastructure.tracking.face_recognizer import FaceRecognizer
 from the_judge.infrastructure.tracking.body_detector import BodyDetector
 from the_judge.infrastructure.tracking.face_body_matcher import FaceBodyMatcher
 from the_judge.infrastructure.tracking.frame_collector import FrameCollector
-from the_judge.application.processing_service import FrameProcessingService
-from the_judge.application.tracking_service import TrackingService
+from the_judge.application.services.processing_service import FrameProcessingService
+from the_judge.application.services.tracking_service import TrackingService
 from the_judge.application.messagebus import MessageBus
 from the_judge.domain.tracking.events import FrameSaved, FrameProcessed
 from the_judge.entrypoints.socket_client import SocketIOClient
@@ -21,11 +21,14 @@ from the_judge.entrypoints.socket_client import SocketIOClient
 class App:
     ws_client: SocketIOClient
     bus: MessageBus
+    tracking_service: TrackingService
 
     async def start(self):
+        await self.tracking_service.start_timeout_worker()
         await self.ws_client.connect()
 
     async def stop(self):
+        await self.tracking_service.stop_timeout_worker() 
         await self.ws_client.disconnect()
 
 
@@ -35,8 +38,8 @@ def create_app() -> App:
     face_provider = InsightFaceProvider()
     body_provider = YOLOProvider()
     
-    face_detector = FaceDetector(face_provider.get_face_model())
-    body_detector = BodyDetector(body_provider.get_body_model())
+    face_model = FaceDetector(face_provider.get_face_model())
+    body_model = BodyDetector(body_provider.get_body_model())
     
     face_body_matcher = FaceBodyMatcher()
     
@@ -44,7 +47,7 @@ def create_app() -> App:
     uow_factory = SqlAlchemyUnitOfWork
     
     face_recognizer = FaceRecognizer(
-        face_provider.get_face_model(),
+        face_model,
         uow_factory
     )
     
@@ -55,8 +58,8 @@ def create_app() -> App:
     )
 
     processing_service = FrameProcessingService(
-        face_detector=face_detector,
-        body_detector=body_detector,
+        face_detector=face_model,
+        body_detector=body_model,
         face_body_matcher=face_body_matcher,
         tracking_service=tracking_service,
         bus=bus,
@@ -70,7 +73,6 @@ def create_app() -> App:
     bus.subscribe(FrameSaved, processing_service.on_frame_saved)
     #bus.subscribe(FrameProcessed, tracking_service.handle_frame_processed)
     
-    # Only the entrypoint at this level
     ws_client = SocketIOClient(frame_collector)
     
-    return App(ws_client=ws_client, bus=bus)
+    return App(ws_client=ws_client, bus=bus, tracking_service=tracking_service)

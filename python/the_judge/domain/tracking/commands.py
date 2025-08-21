@@ -16,3 +16,4 @@ class UnregisterCameraCommand(BaseModel):
 
 class ProcessFrameCommand(BaseModel):
     frame_id: int
+    

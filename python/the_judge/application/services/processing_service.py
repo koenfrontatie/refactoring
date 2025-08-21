@@ -11,7 +11,7 @@ from the_judge.domain.tracking.model import Frame, Face, Body, Visitor, Composit
 from the_judge.domain.tracking.ports import FaceDetectorPort, BodyDetectorPort, FaceBodyMatcherPort
 from the_judge.domain.tracking.events import FrameProcessed, FrameSaved
 from the_judge.application.messagebus import MessageBus
-from the_judge.application.tracking_service import TrackingService
+from the_judge.application.services.tracking_service import TrackingService
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.settings import get_settings
 from the_judge.common.logger import setup_logger
@@ -50,7 +50,8 @@ class FrameProcessingService:
             self.executor, self.process_frame, event.frame, str(image_path)
         )
 
-    def process_frame(self, frame: Frame, image_path: str) -> None:        
+    def process_frame(self, frame: Frame, image_path: str) -> None:
+        frame_id = frame.id
         try:
             image = self._load_image(image_path)
             if image is None:
@@ -63,12 +64,12 @@ class FrameProcessingService:
             
             with self.uow_factory() as uow:
                 uow.repository.add(frame)
-                self.tracking_service.handle_frame(uow, frame, paired_composites)
+                self.tracking_service.handle_frame(uow, frame, paired_composites, bodies)
                 logger.info("Processed frame %s from collection %s: %d faces, %d bodies", frame.id, frame.collection_id, len(composites), len(bodies))
                 uow.commit()
 
-        except Exception as exc:
-            logger.exception("Error processing frame %s", frame.id)
+        except Exception:
+            logger.exception("Error processing frame %s", frame_id)
 
     def _load_image(self, image_path: str):
         img = cv2.imread(image_path)

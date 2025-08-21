@@ -38,6 +38,10 @@ class AbstractRepository(ABC):
         raise NotImplementedError
         
     @abstractmethod
+    def merge(self, entity: Any) -> Any:
+        raise NotImplementedError
+        
+    @abstractmethod
     def get_all_sorted(self, entity_class: Type, offset: int = 0) -> List[Any]: 
         raise NotImplementedError
 
@@ -54,35 +58,47 @@ class TrackingRepository:
         return entity
 
     def get(self, entity_class: Type, entity_id: str) -> Optional[Any]:
-        return (
+        entity = (
             self.session.query(entity_class)
             .filter_by(id=entity_id)
             .first()
         )
+        return entity
 
     def list(self, entity_class: Type) -> List[Any]:
-        return self.session.query(entity_class).all()
+        entities = self.session.query(entity_class).all()
+        return entities
 
     def get_by(self, entity_class: Type, **filters) -> Optional[Any]:
         """Get first entity matching the given filters."""
-        return (
+        entity = (
             self.session.query(entity_class)
             .filter_by(**filters)
             .first()
         )
+        return entity
     
     def list_by(self, entity_class: Type, **filters) -> List[Any]:
         """Get all entities matching the given filters."""
-        return (
+        entities = (
             self.session.query(entity_class)
             .filter_by(**filters)
             .all()
         )
+        return entities
     
     def delete(self, entity: Any) -> None:
         """Delete an entity from the database."""
         self.session.delete(entity)
         self.session.flush()
+    
+    def merge(self, entity: Any) -> Any:
+        """Merge entity (insert if new, update if exists)."""
+        if getattr(entity, "id", None) in (None, ""):
+            setattr(entity, "id", str(uuid.uuid4()))
+        merged = self.session.merge(entity)
+        self.session.flush()
+        return merged
 
     def get_recent(self, entity_class: Type, limit: int) -> List[Any]:
         col = self._order_col(entity_class)
