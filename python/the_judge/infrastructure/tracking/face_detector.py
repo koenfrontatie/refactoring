@@ -6,7 +6,8 @@ import cv2
 import numpy as np
 
 from the_judge.domain.tracking.ports import FaceDetectorPort
-from the_judge.domain.tracking.model import Face, FaceEmbedding, Composite
+from the_judge.domain.tracking.model import Face, FaceEmbedding
+from the_judge.application.dtos import Composite
 from the_judge.common.logger import setup_logger
 from the_judge.common.datetime_utils import now
 from the_judge.settings import get_settings

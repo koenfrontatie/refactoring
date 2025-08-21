@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List
-from the_judge.domain.tracking.model import Visitor, VisitorCollection, Composite, VisitorState
+from the_judge.domain.tracking.model import Visitor, VisitorState
+from the_judge.application.dtos import Composite, VisitorCollection
 from the_judge.common.datetime_utils import now
 
 

@@ -3,7 +3,8 @@ from typing import List, Optional, Tuple
 from scipy.optimize import linear_sum_assignment
 
 from the_judge.domain.tracking.ports import FaceBodyMatcherPort
-from the_judge.domain.tracking.model import Composite, Body
+from the_judge.domain.tracking.model import Body
+from the_judge.application.dtos import Composite
 from the_judge.common.logger import setup_logger
 
 logger = setup_logger('FaceBodyMatcher')

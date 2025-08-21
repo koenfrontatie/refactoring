@@ -3,7 +3,8 @@ from randomname import get_name
 import uuid
 import asyncio
 
-from the_judge.domain.tracking.model import Visitor, Detection, VisitorState, Body, Composite, Frame, VisitorSession, VisitorCollection
+from the_judge.domain.tracking.model import Visitor, Detection, VisitorState, Body, Frame, VisitorSession
+from the_judge.application.dtos import Composite, VisitorCollection
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 from the_judge.application.messagebus import MessageBus
@@ -49,7 +50,7 @@ class TrackingService:
             is_new_in_collection = self.collection_buffer.add_composite(composite)
             composite.visitor.mark_sighting(frame, is_new_in_collection)
             composite.visitor.update_state(frame.captured_at)
-            detections.append(composite.visitor.create_detection(frame, composite))
+            detections.append(composite.visitor.create_detection(frame, composite.face, composite.embedding, composite.body))
             dirty_visitors[composite.visitor.id] = composite.visitor
 
         self._persist_data(uow, frame, bodies, recognized_composites, detections, dirty_visitors.values())

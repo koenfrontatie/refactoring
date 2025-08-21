@@ -62,18 +62,7 @@ class Camera:
     captured_at: datetime
     created_at: datetime
 
-@dataclass
-class Composite:
-    face: Face
-    embedding: FaceEmbedding
-    body: Optional[Body] = None
-    visitor: Optional[Visitor] = None
 
-@dataclass
-class VisitorCollection:
-    id: str
-    created_at: datetime
-    composites: List[Composite] = field(default_factory=list)
 
 class VisitorState(Enum):
     TEMPORARY = "temporary"
@@ -138,16 +127,16 @@ class Visitor:
             self.state = VisitorState.RETURNING
             self._emit_event_if_changed(old_state, VisitorReturned(visitor=self))
 
-    def create_detection(self, frame: Frame, composite: Composite) -> Detection:
+    def create_detection(self, frame: Frame, face: Face, embedding: FaceEmbedding, body: Optional[Body] = None) -> Detection:
         return Detection(
             id=str(uuid.uuid4()),
             frame=frame,
-            face=composite.face,
-            embedding=composite.embedding,
+            face=face,
+            embedding=embedding,
             visitor=self,
             state=self.state,
             captured_at=self.last_seen,
-            body=composite.body
+            body=body
         )
     
     def _should_be_removed(self, current_time) -> bool:

@@ -6,7 +6,8 @@ from typing import Callable, List, Optional
 import numpy as np
 
 from the_judge.common.logger import setup_logger
-from the_judge.domain.tracking.model import FaceEmbedding, Composite, Detection, Visitor
+from the_judge.domain.tracking.model import FaceEmbedding, Detection, Visitor
+from the_judge.application.dtos import Composite
 from the_judge.domain.tracking.ports import FaceRecognizerPort
 from the_judge.infrastructure.db.unit_of_work import AbstractUnitOfWork
 

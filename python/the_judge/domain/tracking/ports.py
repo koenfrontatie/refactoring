@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Any, Dict, Optional, Type, Tuple
 import numpy as np
-from .model import Frame, Face, FaceEmbedding, Body, Composite, Visitor
+from .model import Frame, Face, FaceEmbedding, Body, Visitor
+from the_judge.application.dtos import Composite
 
 
 class FrameCollectorPort(ABC):
