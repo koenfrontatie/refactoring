@@ -73,7 +73,6 @@ def create_app() -> App:
     bus.subscribe(FrameSaved, processing_service.on_frame_saved)
     #bus.subscribe(FrameProcessed, tracking_service.handle_frame_processed)
     
-    # Only the entrypoint at this level
     ws_client = SocketIOClient(frame_collector)
     
     return App(ws_client=ws_client, bus=bus, tracking_service=tracking_service)
